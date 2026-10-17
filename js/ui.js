@@ -2,6 +2,8 @@
    3D LABYRINTH - UI MANAGER (menus, modals, settings persistence)
    ========================================================================== */
 
+import { BOARD_SURFACES, BALL_TYPES, PHYS, surfacePhysics, timePace } from './config.js';
+
 const SETTINGS_KEY = '3d_labyrinth_settings';
 const VIEW_LABEL = { AUTO: '🎥 View: Auto', OVERVIEW: '🗺️ View: Whole board', FOLLOW: '🎯 View: Follow balls' };
 
@@ -19,6 +21,7 @@ export class UIManager {
     this.bindButtons();
     this.bindStereo();
     this.bindControlSettings();
+    this.buildLookPickers();
     this.loadSettings();
   }
 
@@ -89,6 +92,54 @@ export class UIManager {
     const c = this.app.controls;
     this.bindSliderPair('.sens-slider', '.sens-val', v => { c.gyroSensitivity = v; }, v => `${v.toFixed(0)}°`);
     this.on('invertYBtn', () => { c.invertY = !c.invertY; this.syncInvert(); this.saveSettings(); });
+  }
+
+  /* ---------- Board surface & ball type ---------- */
+  buildLookPickers() {
+    const make = (hostId, table, key) => {
+      const host = $(hostId);
+      if (!host) return;
+      for (const [id, t] of Object.entries(table)) {
+        const b = document.createElement('button');
+        b.className = 'look-btn';
+        b.dataset[key] = id;
+        b.setAttribute('role', 'radio');
+        b.title = t.desc;
+        b.textContent = `${t.icon} ${t.name}`;
+        b.addEventListener('click', e => { e.preventDefault(); this.setLook({ [key]: id }); this.saveSettings(); });
+        host.appendChild(b);
+      }
+    };
+    make('boardSelector', BOARD_SURFACES, 'board');
+    make('ballSelector', BALL_TYPES, 'ball');
+  }
+
+  setLook(change) {
+    const look = this.app.look;
+    Object.assign(look, change);
+    if (!BOARD_SURFACES[look.board]) look.board = 'neon';
+    if (!BALL_TYPES[look.ball]) look.ball = 'plastic';
+    document.querySelectorAll('.look-btn').forEach(b => {
+      const on = b.dataset.board ? b.dataset.board === look.board : b.dataset.ball === look.ball;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-checked', on);
+    });
+    // 1-5 meters on log scales spanning the extremes of the material table
+    const s = surfacePhysics(look.board, look.ball);
+    const meter = (v, lo, hi) => {
+      const n = Math.max(1, Math.min(5, Math.round(1 + 4 * (Math.log(v) - Math.log(lo)) / (Math.log(hi) - Math.log(lo)))));
+      return `<span class="meter">${'●'.repeat(n)}<span class="off">${'●'.repeat(5 - n)}</span></span>`;
+    };
+    const grip = s.damping / PHYS.DAMPING, speed = s.accel * s.maxSpeed / PHYS.MAX_SPEED / Math.sqrt(grip);
+    const pace = timePace(s);
+    const stats = $('lookStats');
+    if (stats) stats.innerHTML =
+      `<span>Grip</span>${meter(grip, 0.22, 2.72)}` +
+      `<span>Bounce</span>${meter(s.wallRestitution, 0.19, 0.92)}` +
+      `<span>Speed</span>${meter(speed, 0.5, 3.4)}` +
+      `<span class="desc">${BOARD_SURFACES[look.board].icon} ${BOARD_SURFACES[look.board].desc}. ` +
+      `${BALL_TYPES[look.ball].icon} ${BALL_TYPES[look.ball].desc}.` +
+      (pace > 1.01 ? ` Timer +${Math.round((pace - 1) * 100)}% for this slower pairing.` : '') + '</span>';
   }
 
   setStereoMode(mode) {
@@ -205,7 +256,9 @@ export class UIManager {
       muted: a.audio.muted,
       gyroWanted: a.controls.gyroWanted,
       gyroSensitivity: a.controls.gyroSensitivity,
-      invertY: a.controls.invertY
+      invertY: a.controls.invertY,
+      board: a.look.board,
+      ball: a.look.ball
     };
     try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch (_) { /* storage blocked */ }
   }
@@ -226,6 +279,7 @@ export class UIManager {
     a.controls.gyroWanted = s.gyroWanted !== false; // default ON
     this.syncGyro(false);
     this.setViewMode(s.viewMode || 'AUTO');
+    this.setLook({ board: s.board || 'neon', ball: s.ball || 'plastic' });
     this.loading = false;
   }
 }

@@ -4,42 +4,13 @@
    coordinates are board-local so meshes map 1:1 onto physics positions.
    ========================================================================== */
 
-import { BOARD, BALL_COLORS } from './config.js';
-
-const THEMES = [
-  { floor: '#0b1530', line: 'rgba(0,240,255,0.16)', wall: 0x1e293b, edge: 0x00f0ff, bg: 0x020617 },
-  { floor: '#1a0b2e', line: 'rgba(236,72,153,0.18)', wall: 0x2a1740, edge: 0xec4899, bg: 0x07020f },
-  { floor: '#06231d', line: 'rgba(52,211,153,0.18)', wall: 0x123129, edge: 0x34d399, bg: 0x010a07 },
-  { floor: '#2a1606', line: 'rgba(245,158,11,0.20)', wall: 0x3a2412, edge: 0xf59e0b, bg: 0x0a0501 }
-];
-
-export function themeForLevel(n) { return THEMES[Math.floor((n - 1) / 5) % THEMES.length]; }
-
-function makeTileTexture(theme) {
-  const cv = document.createElement('canvas');
-  cv.width = cv.height = 128;
-  const g = cv.getContext('2d');
-  g.fillStyle = theme.floor;
-  g.fillRect(0, 0, 128, 128);
-  // Fine grain + cell outline: texture gives each eye matching detail to fuse (stronger stereo depth)
-  for (let i = 0; i < 260; i++) {
-    g.fillStyle = `rgba(255,255,255,${Math.random() * 0.05})`;
-    g.fillRect(Math.random() * 128, Math.random() * 128, 2, 2);
-  }
-  g.strokeStyle = theme.line;
-  g.lineWidth = 3;
-  g.strokeRect(6, 6, 116, 116);
-  g.fillStyle = theme.line;
-  g.beginPath(); g.arc(64, 64, 4, 0, Math.PI * 2); g.fill();
-  const tex = new THREE.CanvasTexture(cv);
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.anisotropy = 4;
-  return tex;
-}
+import { BOARD, BALL_COLORS, DEFAULT_LOOK } from './config.js';
+import { boardLook, ballMaterial, makeEnvironment } from './materials.js';
 
 export class BoardView {
-  constructor(scene) {
+  constructor(scene, renderer) {
     this.scene = scene;
+    this.env = makeEnvironment(renderer);
     this.world = new THREE.Group();      // scaled/placed for WebXR, identity otherwise
     this.boardGroup = new THREE.Group(); // tilts
     this.world.add(this.boardGroup);
@@ -87,11 +58,15 @@ export class BoardView {
 
   track(...items) { this.disposables.push(...items); return items[0]; }
 
-  build(level) {
+  build(level, look = DEFAULT_LOOK) {
     this.clear();
     this.level = level;
-    const theme = themeForLevel(level.n);
-    this.scene.background = new THREE.Color(theme.bg);
+    const L = boardLook(look.board, level.n, this.env);
+    this.track(L.floor, L.side, L.wall, L.cap, L.base, ...L.textures);
+    this.scene.background = new THREE.Color(L.bg);
+    this.stars.visible = L.stars;
+    this.sun.color.setHex(L.sun[0]); this.sun.intensity = L.sun[1];
+    this.hemi.color.setHex(L.hemi[0]); this.hemi.groundColor.setHex(L.hemi[1]); this.hemi.intensity = L.hemi[2];
     const { CELL, WALL_T, WALL_H, FLOOR_T, HOLE_R, GOAL_R, PIT_DEPTH, BALL_R } = BOARD;
     const W = level.cols * CELL, H = level.rows * CELL;
 
@@ -113,21 +88,20 @@ export class BoardView {
     const floorGeo = this.track(new THREE.ExtrudeGeometry(shape, { depth: FLOOR_T, bevelEnabled: false, curveSegments: 28 }));
     floorGeo.rotateX(-Math.PI / 2);
     floorGeo.translate(0, -FLOOR_T, 0);
-    const tile = this.track(makeTileTexture(theme));
-    tile.repeat.set(1 / CELL, 1 / CELL);
-    tile.offset.set((level.cols / 2) % 1, (level.rows / 2) % 1);
-    const floorMat = this.track(new THREE.MeshStandardMaterial({ map: tile, roughness: 0.85, metalness: 0.05 }));
-    const sideMat = this.track(new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.9 }));
-    const floor = new THREE.Mesh(floorGeo, [floorMat, sideMat]);
+    // Align texture seams with cell boundaries (ExtrudeGeometry UVs are world x / -z)
+    const k = L.cellsPerTile, tile = L.floor.map;
+    tile.repeat.set(1 / (CELL * k), 1 / (CELL * k));
+    tile.offset.set((level.cols / (2 * k)) % 1, (level.rows / (2 * k)) % 1);
+    const floor = new THREE.Mesh(floorGeo, [L.floor, L.side]);
     floor.receiveShadow = true;
     this.boardGroup.add(floor);
 
     // Pits under every hole (inside faces only) so falling balls visibly drop into depth
-    const pitMat = this.track(new THREE.MeshStandardMaterial({ color: 0x05070d, roughness: 1, side: THREE.BackSide }));
+    const pitMat = this.track(new THREE.MeshStandardMaterial({ color: L.glowPits ? 0x1a0510 : 0x05070d, emissive: L.glowPits ? 0x5a0a1e : 0x000000, roughness: 1, side: THREE.BackSide }));
     const goalPitMat = this.track(new THREE.MeshStandardMaterial({ color: 0x063b2a, emissive: 0x0a7a50, emissiveIntensity: 0.6, side: THREE.BackSide }));
     const pitBottomMat = this.track(new THREE.MeshStandardMaterial({ color: 0x020308, roughness: 1 }));
     const goalBottomMat = this.track(new THREE.MeshStandardMaterial({ color: 0x0d5c3d, emissive: 0x16c47f, emissiveIntensity: 0.7 }));
-    const redRimMat = this.track(new THREE.MeshBasicMaterial({ color: 0xff3b5c }));
+    const redRimMat = this.track(new THREE.MeshBasicMaterial({ color: L.rim }));
     for (const h of holeList) {
       const pit = new THREE.Mesh(this.track(new THREE.CylinderGeometry(h.r, h.r * 0.9, PIT_DEPTH, 28, 1, true)), h.goal ? goalPitMat : pitMat);
       pit.position.set(h.x, -FLOOR_T - PIT_DEPTH / 2 + 0.01, h.z);
@@ -153,10 +127,8 @@ export class BoardView {
 
     // Walls: one instanced body + one instanced glowing cap strip
     const unit = this.track(new THREE.BoxGeometry(1, 1, 1));
-    const wallMat = this.track(new THREE.MeshStandardMaterial({ color: theme.wall, roughness: 0.55, metalness: 0.2 }));
-    const capMat = this.track(new THREE.MeshBasicMaterial({ color: theme.edge }));
-    const walls = new THREE.InstancedMesh(unit, wallMat, level.walls.length);
-    const caps = new THREE.InstancedMesh(unit, capMat, level.walls.length);
+    const walls = new THREE.InstancedMesh(unit, L.wall, level.walls.length);
+    const caps = new THREE.InstancedMesh(unit, L.cap, level.walls.length);
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3();
     level.walls.forEach((w, i) => {
       const sx = w.maxX - w.minX, sz = w.maxZ - w.minZ;
@@ -165,11 +137,11 @@ export class BoardView {
       p.y = WALL_H + 0.02; s.set(sx + 0.01, 0.04, sz + 0.01);
       caps.setMatrixAt(i, m.compose(p, q, s));
     });
-    walls.castShadow = true; walls.receiveShadow = true;
+    walls.castShadow = true; walls.receiveShadow = !L.wall.transparent;
     this.boardGroup.add(walls, caps);
 
     // Base plate under the pits: gives the board a solid silhouette against the stars
-    const base = new THREE.Mesh(this.track(new THREE.BoxGeometry(W + 1.2, 0.25, H + 1.2)), this.track(new THREE.MeshStandardMaterial({ color: 0x0b1020, roughness: 0.6, metalness: 0.4 })));
+    const base = new THREE.Mesh(this.track(new THREE.BoxGeometry(W + 1.2, 0.25, H + 1.2)), L.base);
     base.position.y = -FLOOR_T - PIT_DEPTH - 0.15;
     this.boardGroup.add(base);
 
@@ -187,7 +159,8 @@ export class BoardView {
 
     // Balls
     BALL_COLORS.forEach(color => {
-      const mat = this.track(new THREE.MeshStandardMaterial({ color, roughness: 0.18, metalness: 0.35, emissive: color, emissiveIntensity: 0.18 }));
+      const mat = ballMaterial(look.ball, color, this.env);
+      this.track(mat, ...(mat.map ? [mat.map] : []));
       const ball = new THREE.Mesh(this.ballGeo, mat);
       ball.castShadow = true;
       this.boardGroup.add(ball);

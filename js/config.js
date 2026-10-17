@@ -4,7 +4,7 @@
    Pure module (no THREE / DOM) so it can be unit-tested in Node.
    ========================================================================== */
 
-export const VERSION = '1.0.0';
+export const VERSION = '1.1.0';
 
 // Board geometry (world units; one maze cell = CELL x CELL)
 export const BOARD = {
@@ -37,6 +37,53 @@ export const PHYS = {
   FALL_MARGIN: 0.3,      // ball falls when centre is inside (HOLE_R - BALL_R * FALL_MARGIN)
   RESPAWN_DELAY: 0.7     // seconds a fallen ball waits before reappearing at start
 };
+
+/*
+ * Board surfaces x ball types. Real physics note: on a frictionless incline a
+ * heavy ball does NOT accelerate faster (a = 5/7 g sin(theta) for any mass);
+ * what makes steel feel faster is that rolling resistance and bumps barely
+ * slow it. So "accel" here is a small gameplay boost; the big differences come
+ * from grip (rolling resistance) and bounce (wall restitution).
+ *   grip   multiplies PHYS.DAMPING      (higher = balls slow down sooner)
+ *   bounce multiplies PHYS.WALL_RESTITUTION
+ */
+export const BOARD_SURFACES = {
+  neon:   { name: 'Neon',   icon: '💠', grip: 1.0, bounce: 1.0,  desc: 'Classic arcade board, balanced grip' },
+  wood:   { name: 'Wood',   icon: '🪵', grip: 1.7, bounce: 0.75, desc: 'Grippy and forgiving: balls slow quickly, soft knocks' },
+  glass:  { name: 'Glass',  icon: '🧊', grip: 0.4, bounce: 1.2,  desc: 'Slippery: balls glide and keep their momentum' },
+  marble: { name: 'Marble', icon: '🏛️', grip: 0.7, bounce: 1.35, desc: 'Polished stone: quick, with springy walls' }
+};
+
+export const BALL_TYPES = {
+  plastic: { name: 'Plastic', icon: '🟡', accel: 1.0,  grip: 1.0, bounce: 1.0, ballBounce: 0.7,  maxSpeed: 1.0,  desc: 'Light and lively, all-rounder' },
+  metal:   { name: 'Steel',   icon: '⚙️', accel: 1.2,  grip: 0.55, bounce: 0.55, ballBounce: 0.45, maxSpeed: 1.3, desc: 'Heavy: fast, carries momentum, dull thuds' },
+  rubber:  { name: 'Rubber',  icon: '🔴', accel: 0.85, grip: 1.6, bounce: 1.7, ballBounce: 0.9,  maxSpeed: 0.85, desc: 'Grippy and bouncy: slower but springs off walls' }
+};
+
+export const DEFAULT_LOOK = { board: 'neon', ball: 'plastic' };
+
+/** Effective physics for a board/ball pairing. */
+export function surfacePhysics(boardId = DEFAULT_LOOK.board, ballId = DEFAULT_LOOK.ball) {
+  const s = BOARD_SURFACES[boardId] || BOARD_SURFACES.neon;
+  const b = BALL_TYPES[ballId] || BALL_TYPES.plastic;
+  return {
+    damping: PHYS.DAMPING * s.grip * b.grip,
+    wallRestitution: Math.min(0.92, PHYS.WALL_RESTITUTION * s.bounce * b.bounce),
+    ballRestitution: b.ballBounce,
+    maxSpeed: PHYS.MAX_SPEED * b.maxSpeed,
+    accel: b.accel
+  };
+}
+
+/**
+ * Time-limit multiplier for grippy/slow pairings (wood + rubber needs ~1.3x the
+ * time per tests/solvable.test.mjs). Slick pairings keep the full limit: they
+ * are faster but harder to control, so no time is taken away.
+ */
+export function timePace(surf) {
+  const ratio = surf.damping / PHYS.DAMPING;
+  return Math.max(1.0, Math.min(1.4, Math.pow(ratio, 0.3) / surf.accel));
+}
 
 export const BALL_COUNT = 3;
 export const BALL_COLORS = [0xffc93c, 0x00f0ff, 0xff4fa3];

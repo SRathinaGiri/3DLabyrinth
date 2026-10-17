@@ -4,7 +4,7 @@
    Pure module (no THREE / DOM) so it can be unit-tested in Node.
    ========================================================================== */
 
-import { BOARD, PHYS, BALL_COUNT } from './config.js';
+import { BOARD, PHYS, BALL_COUNT, surfacePhysics } from './config.js';
 
 const R = BOARD.BALL_R;
 // Triangle formation inside the start cell
@@ -13,8 +13,9 @@ const START_OFFSETS = [[-0.42, 0.3], [0.42, 0.3], [0, -0.38]];
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
 export class PhysicsWorld {
-  constructor(level) {
+  constructor(level, surface = surfacePhysics()) {
     this.level = level;
+    this.surf = surface; // grip / bounce for the chosen board + ball materials
     this.walls = level.walls;
     this.holes = level.holes;
     this.goal = level.goal;
@@ -76,9 +77,9 @@ export class PhysicsWorld {
       maxBall = Math.max(maxBall, this.collideBalls());
       for (const b of this.balls) {
         if (b.state !== 'roll') continue;
-        for (const sl of this.sliders) collideBox(b, sl.box, sl.vx, sl.vz, PHYS.WALL_RESTITUTION);
+        for (const sl of this.sliders) collideBox(b, sl.box, sl.vx, sl.vz, this.surf.wallRestitution);
         // Walls last: a static wall always wins over a pushing slider
-        for (const w of this.walls) maxWall = Math.max(maxWall, collideBox(b, w, 0, 0, PHYS.WALL_RESTITUTION));
+        for (const w of this.walls) maxWall = Math.max(maxWall, collideBox(b, w, 0, 0, this.surf.wallRestitution));
       }
     }
     if (maxWall > 0.6 && events.wallHit) events.wallHit(maxWall);
@@ -113,10 +114,11 @@ export class PhysicsWorld {
     }
 
     b.vx += fx * h; b.vz += fz * h;
-    const damp = Math.max(0, 1 - PHYS.DAMPING * h);
+    const damp = Math.max(0, 1 - this.surf.damping * h);
     b.vx *= damp; b.vz *= damp;
     const sp = Math.hypot(b.vx, b.vz);
-    if (sp > PHYS.MAX_SPEED) { b.vx *= PHYS.MAX_SPEED / sp; b.vz *= PHYS.MAX_SPEED / sp; }
+    const vmax = this.surf.maxSpeed;
+    if (sp > vmax) { b.vx *= vmax / sp; b.vz *= vmax / sp; }
     b.x += b.vx * h; b.z += b.vz * h;
   }
 
@@ -155,7 +157,7 @@ export class PhysicsWorld {
         a.x -= nx * pen; a.z -= nz * pen; b.x += nx * pen; b.z += nz * pen;
         const vrel = (a.vx - b.vx) * nx + (a.vz - b.vz) * nz;
         if (vrel > 0) {
-          const j = (1 + PHYS.BALL_RESTITUTION) * vrel / 2;
+          const j = (1 + this.surf.ballRestitution) * vrel / 2;
           a.vx -= j * nx; a.vz -= j * nz; b.vx += j * nx; b.vz += j * nz;
           maxImpact = Math.max(maxImpact, vrel);
         }

@@ -12,6 +12,24 @@ Sister project of [3D Tunnel Rush](https://github.com/SRathinaGiri/3DTunnelRush)
 - **Camera**: Auto (switches to follow-cam when the cells would get too small), Whole board, or Follow balls.
 - **Offline PWA**: three.js r128 is bundled locally, sound is synthesised with the Web Audio API, and there are no external requests.
 
+## Boards & balls (`js/config.js` → `BOARD_SURFACES`, `BALL_TYPES`)
+Pick them in the menu. Each one changes both the look and the physics.
+
+| Board | Grip | Wall bounce | Feel |
+|---|---|---|---|
+| 💠 Neon | 1.0× | 1.0× | Classic arcade board |
+| 🪵 Wood | 1.7× | 0.75× | Grippy and forgiving, soft knocks |
+| 🧊 Glass | 0.4× | 1.2× | Slippery; you can see the pits through the floor |
+| 🏛️ Marble | 0.7× | 1.35× | Quick, with springy walls |
+
+| Ball | Accel | Grip | Bounce | Top speed | Feel |
+|---|---|---|---|---|---|
+| 🟡 Plastic | 1.0× | 1.0× | 1.0× | 1.0× | All-rounder |
+| ⚙️ Steel | 1.2× | 0.55× | 0.55× | 1.3× | Heavy: fast, keeps momentum, dull thuds |
+| 🔴 Rubber | 0.85× | 1.6× | 1.7× | 0.85× | Slow but springs off walls |
+
+Board and ball values multiply together (grip → rolling resistance, bounce → wall restitution, capped at 0.92). Physics note: on a real incline a heavy ball does not accelerate faster, because a = 5/7·g·sinθ regardless of mass. Steel feels fast because friction and bumps barely slow it, so its accel boost is a gameplay choice. Slow pairings get up to +40% on the timer (`timePace`). Impact sounds also change: steel pings, rubber thuds, wood dulls the knock, and glass/marble make it ring.
+
 ## Difficulty curve (`js/config.js`)
 | Level | What gets added |
 |---|---|
@@ -37,7 +55,7 @@ Then open http://localhost:8086. Gyro access needs **HTTPS** on real phones; Git
 node --test tests/logic.test.mjs tests/solvable.test.mjs
 ```
 - `logic.test.mjs` checks that the mazes are perfect and deterministic, that hurdles never block the path, that balls never tunnel through walls, and that the hole, respawn and goal logic works.
-- `solvable.test.mjs` runs a headless autopilot that clears levels 1–30 with the real physics, ball by ball, timing the gates. The time limits are calibrated against it.
+- `solvable.test.mjs` runs a headless autopilot that clears levels 1–30 with the real physics, ball by ball, timing the gates. It also clears levels 1–12 on the extreme pairings (glass+steel, wood+rubber, marble+rubber, glass+plastic). The time limits are calibrated against it.
 
 ## Structure
 ```
@@ -46,6 +64,7 @@ js/maze.js      seeded maze generator + hurdle placement (pure)
 js/physics.js   ball physics: walls, gates, holes, goal (pure)
 js/renderer.js  stereo engine (from Tunnel Rush)
 js/board.js     three.js scene for a level
+js/materials.js procedural wood/glass/marble/neon textures, ball skins, reflection env
 js/controls.js  gyro / drag / keys / gamepad / XR → analog tilt
 js/hud3d.js     in-scene HUD (works in every stereo mode)
 js/audio.js     Web Audio synth

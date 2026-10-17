@@ -2,7 +2,7 @@
    3D LABYRINTH - MAIN APPLICATION (game loop, camera, level lifecycle)
    ========================================================================== */
 
-import { VERSION, BOARD, PHYS } from './config.js';
+import { VERSION, BOARD, PHYS, DEFAULT_LOOK, surfacePhysics, timePace } from './config.js';
 import { buildLevel } from './maze.js';
 import { PhysicsWorld } from './physics.js';
 import { StereoRenderEngine } from './renderer.js';
@@ -35,12 +35,13 @@ class GameApp {
     this.depth = 1.0;
     this.focusOffset = 0;
     this.progress = loadProgress();
+    this.look = { ...DEFAULT_LOOK }; // board surface + ball type, chosen in the menu
 
     this.scene = new THREE.Scene();
     const canvas = document.getElementById('gameCanvas');
     this.renderer = new StereoRenderEngine(canvas);
     this.scene.add(this.renderer.cameraGroup);
-    this.board = new BoardView(this.scene);
+    this.board = new BoardView(this.scene, this.renderer.renderer);
     this.controls = new ControlsHandler();
     this.hud = new HUD3D(this.renderer.mainCamera);
     this.audio = soundEngine;
@@ -72,8 +73,11 @@ class GameApp {
   /* ------------------------------ Level lifecycle ------------------------------ */
   loadLevel(n) {
     this.level = buildLevel(n);
-    this.physics = new PhysicsWorld(this.level);
-    this.board.build(this.level);
+    const surf = surfacePhysics(this.look.board, this.look.ball);
+    this.level.timeLimit = Math.round(this.level.timeLimit * timePace(surf));
+    this.physics = new PhysicsWorld(this.level, surf);
+    this.board.build(this.level, this.look);
+    this.audio.setMaterials(this.look.board, this.look.ball);
     this.tilt.x = this.tilt.z = 0;
     this.elapsed = 0;
     this.lastTick = -1;
@@ -216,7 +220,7 @@ class GameApp {
     this.tilt.z += (tz - this.tilt.z) * k;
 
     if (active) {
-      const g = PHYS.G * PHYS.ROLL_FACTOR;
+      const g = PHYS.G * PHYS.ROLL_FACTOR * this.physics.surf.accel;
       this.physics.step(dt, g * Math.sin(this.tilt.x), -g * Math.sin(this.tilt.z), {
         wallHit: s => { this.audio.playClick(s); if (s > 5) this.vibrate(15); },
         ballHit: s => this.audio.playClick(s, true),

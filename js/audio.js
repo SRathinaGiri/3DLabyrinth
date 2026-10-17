@@ -40,14 +40,33 @@ class SoundEngine {
     o.start(t); o.stop(t + dur + 0.02);
   }
 
-  /** Wall / ball knock, volume scales with impact speed; throttled to avoid machine-gunning. */
+  /** Sound character of the current ball + board (wood is dull, glass/marble ring). */
+  setMaterials(board, ball) {
+    this.board = board;
+    this.ball = ball;
+  }
+
+  /** Wall / ball knock: volume follows impact speed, timbre follows the materials. Throttled. */
   playClick(speed, isBall = false) {
     if (!this.ok()) return;
     const now = this.ctx.currentTime;
     if (now - this.lastClick < 0.045) return;
     this.lastClick = now;
     const v = Math.min(0.28, 0.04 + speed * 0.03);
-    this.tone(isBall ? 1400 : 380 + Math.random() * 80, 0.06, { type: 'triangle', vol: v });
+    const surf = { wood: 0.75, glass: 1.35, marble: 1.2 }[this.board] || 1;
+    const ring = this.board === 'wood' ? 0.6 : (this.board === 'glass' || this.board === 'marble') ? 1.6 : 1;
+    const jitter = 0.94 + Math.random() * 0.12;
+    if (this.ball === 'metal') {
+      // Steel: bright inharmonic ping with a short ring
+      const f = (isBall ? 2600 : 1700) * surf * jitter;
+      this.tone(f, 0.12 * ring, { vol: v * 0.8 });
+      this.tone(f * 2.76, 0.07 * ring, { vol: v * 0.35 });
+    } else if (this.ball === 'rubber') {
+      // Rubber: soft low thud that drops in pitch
+      this.tone((isBall ? 260 : 150) * surf * jitter, 0.09, { vol: v * 1.1, slideTo: 70 });
+    } else {
+      this.tone((isBall ? 1400 : 420) * surf * jitter, 0.06 * ring, { type: 'triangle', vol: v });
+    }
   }
 
   playFall() {

@@ -189,3 +189,14 @@ kbd { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2
   .level-btn-big .lbl { display: none; }
   .level-btn-big { font-size: 1.05rem; }
 }
+
+/* ---------------- Board & ball picker ---------------- */
+.look-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; width: 100%; }
+.look-label { min-width: 52px; font-size: 0.85rem; color: var(--muted); }
+.look-btn { background: transparent; border: none; color: var(--muted); padding: 8px 12px; border-radius: 8px; font-size: 0.88rem; font-weight: 700; cursor: pointer; }
+.look-btn:hover { color: var(--text); }
+.look-btn.active { background: var(--cyan); color: #020617; }
+.look-stats { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 0.85rem; align-items: center; }
+.look-stats .meter { color: var(--amber); letter-spacing: 2px; font-size: 0.8rem; }
+.look-stats .meter .off { color: rgba(148,163,184,0.35); }
+.look-stats .desc { grid-column: 1 / -1; color: var(--muted); line-height: 1.5; }
