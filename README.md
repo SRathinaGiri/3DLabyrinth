@@ -1,0 +1,57 @@
+# 🎱 3D Labyrinth PWA (Stereoscopic 3D Tilt-Maze)
+
+Tilt the board and roll **three balls** from the blue start ring into the **green goal**. Dodge holes, time the sliding gates and beat the clock. Levels are procedural and endless, and each level number is a fixed seed, so "Level 7" is the same maze every time.
+
+Sister project of [3D Tunnel Rush](https://github.com/SRathinaGiri/3DTunnelRush). It reuses that game's stereo render pipeline, gyro handling and PWA shell.
+
+## Features
+- **Mobile first**: the gyroscope is on by default. Hold the phone however is comfortable, because the countdown takes your current grip as "flat". Tap 🎯 Re-level any time.
+- **Other inputs**: drag anywhere on the board (touch or mouse) like a joystick, arrow keys / WASD, gamepad stick, or a Meta Quest thumbstick.
+- **3D modes**: 2D, Parallel SBS, Cross-Eye SBS, Anaglyph (red/cyan), Smart-Glasses HSBS (RayNeo / XREAL / Rokid / TCL) and WebXR VR.
+- **Auto stereo**: eye separation and the focal plane scale with camera distance, so depth feels the same on a 5×5 board and a 16×16 board. The HUD sits on the zero-parallax plane.
+- **Camera**: Auto (switches to follow-cam when the cells would get too small), Whole board, or Follow balls.
+- **Offline PWA**: three.js r128 is bundled locally, sound is synthesised with the Web Audio API, and there are no external requests.
+
+## Difficulty curve (`js/config.js`)
+| Level | What gets added |
+|---|---|
+| 1–2 | 5×5 maze, no hurdles, untimed |
+| 2+ | Side holes in dead-end branches (traps for overshooting balls) |
+| 3+ | Time limit, scaled to the length of the solution path |
+| 4+ | Sliding gates that sweep across corridors |
+| 5+ | Holes offset into straight corridors, leaving a narrow lane to pass |
+| 8+ | Holes in the outer corner of turns, which catch balls that take corners too fast |
+| All | The board grows to 16×16 and the maximum tilt rises from 9.5° to 16° |
+
+Stars: ★★★ for no falls and finishing within 66% of the time, ★★ for up to 2 falls, ★ for clearing the level.
+
+## Run locally
+ES modules need a web server:
+```bash
+python -m http.server 8086
+```
+Then open http://localhost:8086. Gyro access needs **HTTPS** on real phones; GitHub Pages provides that.
+
+## Tests
+```bash
+node --test tests/logic.test.mjs tests/solvable.test.mjs
+```
+- `logic.test.mjs` checks that the mazes are perfect and deterministic, that hurdles never block the path, that balls never tunnel through walls, and that the hole, respawn and goal logic works.
+- `solvable.test.mjs` runs a headless autopilot that clears levels 1–30 with the real physics, ball by ball, timing the gates. The time limits are calibrated against it.
+
+## Structure
+```
+js/config.js    constants + difficulty curve (pure)
+js/maze.js      seeded maze generator + hurdle placement (pure)
+js/physics.js   ball physics: walls, gates, holes, goal (pure)
+js/renderer.js  stereo engine (from Tunnel Rush)
+js/board.js     three.js scene for a level
+js/controls.js  gyro / drag / keys / gamepad / XR → analog tilt
+js/hud3d.js     in-scene HUD (works in every stereo mode)
+js/audio.js     Web Audio synth
+js/ui.js        menus, modals, settings
+js/app.js       game loop, camera, level lifecycle, WebXR, service worker
+```
+
+## License
+MIT. three.js is MIT (© three.js authors).

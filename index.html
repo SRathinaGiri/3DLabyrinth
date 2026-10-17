@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="description" content="3D Labyrinth: tilt the board to guide three balls home. 2D, Parallel, Cross-eye, Anaglyph, Smart-glasses and VR stereo modes.">
+  <meta name="theme-color" content="#020617">
+  <title>3D Labyrinth</title>
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg">
+  <link rel="apple-touch-icon" href="./assets/favicon.svg">
+  <link rel="stylesheet" href="./css/styles.css?v=1.0.0">
+  <!-- Three.js r128, bundled locally so the PWA works fully offline -->
+  <script src="./js/lib/three.min.js"></script>
+</head>
+<body>
+
+  <!-- ============ PAGE 1: MENU ============ -->
+  <div id="menuPage" class="page">
+    <header class="app-header">
+      <div class="brand-title">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke-width="2.2" aria-hidden="true">
+          <rect x="2" y="2" width="20" height="20" rx="3" stroke="#00f0ff"/>
+          <path d="M2 8h12M10 8v8M6 16h12M18 12v8" stroke="#ec4899"/>
+          <circle cx="6" cy="12" r="1.8" fill="#ffc93c" stroke="none"/>
+        </svg>
+        <span>3D Labyrinth</span>
+        <span class="version-badge">v1.0.0</span>
+      </div>
+      <div class="header-controls">
+        <button class="icon-btn vr-btn" id="webxrBtn" style="display:none" title="Enter immersive VR (Meta Quest browser)">🥽 VR</button>
+        <button class="icon-btn" id="audioToggle" title="Toggle sound (M)">🔊 Sound</button>
+        <button class="icon-btn" id="helpBtn" title="How to play & 3D viewing guide">❓ Guide</button>
+      </div>
+    </header>
+
+    <main class="menu-content">
+      <section class="card hero">
+        <h1 class="title">3D Labyrinth</h1>
+        <p class="muted">Tilt the board and roll all <strong>three balls</strong> from the blue start ring into the
+          <strong class="green">green goal</strong>. Dodge holes, time the sliding gates, beat the clock. Every level gets bigger and meaner.</p>
+        <button class="action-btn" id="playBtn">▶ Play Level 1</button>
+        <h3 class="section-h">Levels</h3>
+        <div class="level-grid" id="levelGrid"></div>
+      </section>
+
+      <section class="card">
+        <h3 class="section-h">🎮 Controls</h3>
+        <div class="row-wrap">
+          <button class="icon-btn" id="gyroToggle" title="Tilt your phone to tilt the board">📱 <span id="gyroBadge">Gyro: AUTO</span></button>
+          <button class="icon-btn" id="viewModeBtn" title="Camera: Auto / Whole board / Follow balls (V)">🎥 View: Auto</button>
+          <button class="icon-btn" id="invertYBtn">↕️ Invert tilt: OFF</button>
+        </div>
+        <div class="slider-group" title="Degrees of phone tilt for full board tilt (lower = more sensitive)">
+          <label>Gyro range</label>
+          <input type="range" class="sens-slider" min="8" max="40" step="1" value="20">
+          <span class="val sens-val">20°</span>
+        </div>
+        <p class="hint">Phone: tilt (default) · or drag anywhere on the board like a joystick. Desktop: arrow keys / WASD or mouse-drag. Gamepad stick works too.
+          <kbd>P</kbd> pause · <kbd>R</kbd> restart · <kbd>C</kbd> re-level gyro · <kbd>V</kbd> camera.</p>
+      </section>
+
+      <section class="card">
+        <h3 class="section-h">👓 3D Viewing</h3>
+        <div class="mode-selector">
+          <button class="mode-btn active" data-mode="2d">2D</button>
+          <button class="mode-btn" data-mode="parallel">Parallel 3D (SBS)</button>
+          <button class="mode-btn" data-mode="cross">Cross-Eye 3D</button>
+          <button class="mode-btn" data-mode="anaglyph">Anaglyph 🔴🔵</button>
+          <button class="mode-btn" data-mode="hsbs" title="Half side-by-side 16:9 for RayNeo / XREAL / Rokid / TCL glasses">Smart Glasses (HSBS)</button>
+        </div>
+        <div class="slider-group" title="Stereo strength (eye separation, scaled to viewing distance)">
+          <label>3D Depth</label>
+          <input type="range" class="depth-slider" min="0" max="3" step="0.05" value="1">
+          <span class="val depth-val">1.00</span>
+        </div>
+        <div class="slider-group" title="Move the zero-parallax (screen) plane nearer (-) or further (+)">
+          <label>Focus</label>
+          <input type="range" class="focus-slider" min="-40" max="40" step="1" value="0">
+          <span class="val focus-val">0%</span>
+        </div>
+        <button class="icon-btn swap-btn">🔄 Swap Eyes</button>
+        <p class="hint"><button class="link-btn" id="resetProgressBtn">Reset level progress</button></p>
+      </section>
+    </main>
+  </div>
+
+  <!-- ============ PAGE 2: GAME ============ -->
+  <div id="gamePage" class="page hidden">
+    <div class="viewport-frame mode-single" id="viewportFrame">
+      <div class="sbs-divider" id="sbsDivider"></div>
+      <canvas id="gameCanvas"></canvas>
+      <div class="joystick" id="joystick"><div class="knob"></div></div>
+
+      <div class="modal-overlay hidden" id="pauseScreen">
+        <div class="modal-card">
+          <h2 class="title">⏸ Paused</h2>
+          <div class="mode-selector">
+            <button class="mode-btn" data-mode="2d">2D</button>
+            <button class="mode-btn" data-mode="parallel">Parallel</button>
+            <button class="mode-btn" data-mode="cross">Cross-Eye</button>
+            <button class="mode-btn" data-mode="anaglyph">Anaglyph</button>
+            <button class="mode-btn" data-mode="hsbs">HSBS</button>
+          </div>
+          <div class="slider-group">
+            <label>3D Depth</label>
+            <input type="range" class="depth-slider" min="0" max="3" step="0.05" value="1">
+            <span class="val depth-val">1.00</span>
+          </div>
+          <div class="slider-group">
+            <label>Focus</label>
+            <input type="range" class="focus-slider" min="-40" max="40" step="1" value="0">
+            <span class="val focus-val">0%</span>
+          </div>
+          <div class="slider-group">
+            <label>Gyro range</label>
+            <input type="range" class="sens-slider" min="8" max="40" step="1" value="20">
+            <span class="val sens-val">20°</span>
+          </div>
+          <button class="icon-btn swap-btn">🔄 Swap Eyes</button>
+          <div class="btn-row">
+            <button class="action-btn" id="resumeBtn">▶ Resume</button>
+            <button class="action-btn ghost" id="pauseRestartBtn">↻ Restart</button>
+            <button class="action-btn ghost" id="pauseMenuBtn">☰ Menu</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-overlay hidden" id="completeScreen">
+        <div class="modal-card">
+          <h2 class="title green" id="completeTitle">Level cleared!</h2>
+          <div class="stars" id="completeStars">★★★</div>
+          <div class="muted" id="completeStats"></div>
+          <div class="btn-row">
+            <button class="action-btn" id="nextBtn">Next Level ▶</button>
+            <button class="action-btn ghost" id="replayBtn">↻ Replay</button>
+            <button class="action-btn ghost" id="completeMenuBtn">☰ Menu</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-overlay hidden" id="failedScreen">
+        <div class="modal-card">
+          <h2 class="title red">Time's up</h2>
+          <div class="muted" id="failedStats"></div>
+          <div class="btn-row">
+            <button class="action-btn" id="retryBtn">↻ Try again</button>
+            <button class="action-btn ghost" id="failedMenuBtn">☰ Menu</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="game-toolbar" id="gameBottomToolbar">
+      <div class="group">
+        <button class="icon-btn icon-only" id="gamePauseBtn" title="Pause / 3D settings (P)">⏸️</button>
+        <button class="icon-btn icon-only" id="gameStopBtn" title="Back to menu">⏹️</button>
+        <button class="icon-btn icon-only" id="gameRestartBtn" title="Restart level (R)">🔄</button>
+      </div>
+      <button class="icon-btn level-btn-big" id="gameCalibrateBtn" title="Treat the current phone position as flat (C)">🎯<span class="lbl"> Re-level</span></button>
+      <div class="group">
+        <button class="icon-btn icon-only" id="gameViewBtn" title="Camera (V)">🎥</button>
+        <button class="icon-btn icon-only" id="gameGyroBtn" title="Gyroscope">📱</button>
+        <button class="icon-btn icon-only" id="gameAudioBtn" title="Sound (M)">🔊</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ GUIDE ============ -->
+  <div class="drawer-overlay hidden" id="infoDrawer">
+    <div class="drawer">
+      <h3>How to play</h3>
+      <ul>
+        <li>Get all <strong>3 balls</strong> into the <strong class="green">green goal</strong>. A ball in a <strong class="red">red-rimmed hole</strong> drops out and restarts at the blue ring.</li>
+        <li>Levels 1–2 are untimed. From level 3 there is a clock; later levels add offset holes, corner holes on turns and orange <strong>sliding gates</strong> you must time.</li>
+        <li>★★★ = no falls and fast · ★★ = up to 2 falls · ★ = cleared.</li>
+        <li><strong>Gyro</strong>: hold the phone however is comfortable — the countdown levels it. Tap <em>🎯 Re-level</em> any time. iPhone asks for motion permission on first play.</li>
+        <li><strong>Gesture</strong>: touch and drag anywhere on the board — the drag distance is the tilt.</li>
+      </ul>
+      <h3>3D viewing modes</h3>
+      <ul>
+        <li><strong>Parallel 3D</strong>: left image for left eye — cardboard viewers or parallel free-viewing.</li>
+        <li><strong>Cross-Eye 3D</strong>: cross your eyes until a third image fuses in the middle.</li>
+        <li><strong>Anaglyph</strong>: red/cyan glasses.</li>
+        <li><strong>Smart Glasses (HSBS)</strong>: 16:9 half side-by-side for RayNeo Air, XREAL, Rokid, TCL — switch the glasses to 3D SBS mode.</li>
+        <li><strong>🥽 VR</strong>: appears in Meta Quest browser; the board floats on a virtual table, thumbstick tilts it.</li>
+        <li><strong>3D Depth</strong> scales automatically with board size; lower it if your eyes strain. <strong>Focus</strong> moves the screen plane.</li>
+      </ul>
+      <button class="action-btn" id="closeInfoBtn">Got it</button>
+    </div>
+  </div>
+
+  <div id="updateBanner" class="update-banner hidden">
+    <span>🚀 A new version is ready.</span>
+    <button id="installUpdateBtn" class="update-btn">🔄 Update</button>
+    <button id="closeUpdateBtn" class="update-close" title="Dismiss">✖</button>
+  </div>
+
+  <script type="module" src="./js/app.js?v=1.0.0"></script>
+</body>
+</html>
