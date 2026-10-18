@@ -5,6 +5,10 @@
    halves, anaglyph, smart glasses and WebXR.
    ========================================================================== */
 
+import { BOARD } from './config.js';
+
+const MAP_PX = 512;
+
 function makePanel(w, h) {
   const canvas = document.createElement('canvas');
   canvas.width = w; canvas.height = h;
@@ -36,7 +40,12 @@ export class HUD3D {
     this.dialog.mesh.renderOrder = 1000;
     this.dialogSpec = null;  // { title, color, big, lines, buttons:[{id,label}], focus }
     this.dialogNdc = { hw: 1, hh: 1 };
-    camera.add(this.bar.mesh, this.banner.mesh, this.dialog.mesh);
+    // Minimap (Inside view): static maze layer drawn once per level, composited heading-up each update
+    this.map = makePanel(MAP_PX, MAP_PX);
+    this.map.mesh.visible = false;
+    this.mapLayer = null;
+    this.mapTimer = 0;
+    camera.add(this.bar.mesh, this.banner.mesh, this.dialog.mesh, this.map.mesh);
     this.distance = 10;
     this.bannerTimer = 0;
   }
@@ -52,11 +61,80 @@ export class HUD3D {
     const bW = Math.min(viewW * 0.86, viewH * 1.1);
     this.banner.mesh.scale.set(bW, bW / 2, 1);
     this.banner.mesh.position.set(0, 0, -distance);
+    // Minimap: top-right, under the status bar
+    const mS = Math.min(viewW * 0.4, viewH * 0.34), margin = viewH * 0.02;
+    this.map.mesh.scale.set(mS, mS, 1);
+    this.map.mesh.position.set(viewW / 2 - mS / 2 - margin, viewH / 2 - barH - viewH * 0.03 - mS / 2, -distance * 0.998);
+
     const dW = Math.min(viewW * 0.94, viewH * 1.2), dH = dW * 0.625;
     this.dialog.mesh.scale.set(dW, dH, 1);
     this.dialog.mesh.position.set(0, -viewH * 0.02, -distance * 0.999);
     // Panel extent in NDC (identical for both eyes: it sits on the zero-parallax plane)
     this.dialogNdc = { hw: dW / viewW, hh: dH / viewH, cy: (-viewH * 0.02) / (viewH / 2) };
+  }
+
+  /* ---------------- Minimap (Inside view) ---------------- */
+  /** Pre-render the maze top-down (north up) for this level. */
+  setMap(level) {
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = MAP_PX;
+    const g = cv.getContext('2d'), { CELL } = BOARD;
+    const pad = 40, scale = (MAP_PX - pad * 2) / (Math.max(level.cols, level.rows) * CELL);
+    const W = level.cols * CELL, H = level.rows * CELL;
+    const ox = (MAP_PX - W * scale) / 2, oz = (MAP_PX - H * scale) / 2;
+    this.mapXf = { scale, ox, oz, W, H };
+    const X = x => ox + (x + W / 2) * scale, Z = z => oz + (z + H / 2) * scale;
+
+    g.fillStyle = 'rgba(15,23,42,0.9)';
+    g.fillRect(ox, oz, W * scale, H * scale);
+    g.fillStyle = '#7dd3fc';
+    for (const w of level.walls) g.fillRect(X(w.minX), Z(w.minZ), Math.max(2, (w.maxX - w.minX) * scale), Math.max(2, (w.maxZ - w.minZ) * scale));
+    for (const h of level.holes) {
+      g.fillStyle = '#ff3b5c';
+      g.beginPath(); g.arc(X(h.x), Z(h.z), Math.max(3, h.r_ * scale), 0, Math.PI * 2); g.fill();
+    }
+    g.fillStyle = '#ff7a1a';
+    for (const sl of level.sliders) g.fillRect(X(sl.x) - CELL * scale * 0.3, Z(sl.z) - CELL * scale * 0.3, CELL * scale * 0.6, CELL * scale * 0.6);
+    g.strokeStyle = '#3b82f6'; g.lineWidth = 4;
+    g.beginPath(); g.arc(X(level.startPos.x), Z(level.startPos.z), CELL * scale * 0.38, 0, Math.PI * 2); g.stroke();
+    g.fillStyle = '#34ff9a';
+    g.beginPath(); g.arc(X(level.goal.x), Z(level.goal.z), Math.max(5, level.goal.r_ * scale * 1.2), 0, Math.PI * 2); g.fill();
+    this.mapLayer = cv;
+    this.mapTimer = 0;
+  }
+
+  setMapVisible(v) { this.map.mesh.visible = v && !!this.mapLayer; }
+
+  /** Redraw ~12x/s: maze rotated so the camera's forward direction points up, ball at its true spot. */
+  updateMap(ball, dir, dt) {
+    if (!this.map.mesh.visible || !this.mapLayer) return;
+    this.mapTimer -= dt;
+    if (this.mapTimer > 0) return;
+    this.mapTimer = 1 / 12;
+    const g = this.map.ctx, S = MAP_PX, c = S / 2, { scale, ox, oz, W, H } = this.mapXf;
+    g.clearRect(0, 0, S, S);
+    g.fillStyle = 'rgba(2,6,23,0.72)';
+    roundRect(g, 4, 4, S - 8, S - 8, 40); g.fill();
+    g.strokeStyle = 'rgba(0,240,255,0.55)'; g.lineWidth = 5; g.stroke();
+    g.save();
+    roundRect(g, 10, 10, S - 20, S - 20, 34); g.clip();
+    // Heading-up: rotate so dir (board x,z) maps to screen up. 90-degree steps keep the square map inside the panel.
+    g.translate(c, c);
+    g.rotate(-Math.PI / 2 - Math.atan2(dir[1], dir[0]));
+    g.translate(-c, -c);
+    g.drawImage(this.mapLayer, 0, 0);
+    const bx = ox + (ball.x + W / 2) * scale, bz = oz + (ball.z + H / 2) * scale;
+    // View cone
+    const ang = Math.atan2(dir[1], dir[0]), len = 95;
+    const grad = g.createRadialGradient(bx, bz, 4, bx, bz, len);
+    grad.addColorStop(0, 'rgba(255,201,60,0.55)'); grad.addColorStop(1, 'rgba(255,201,60,0)');
+    g.fillStyle = grad;
+    g.beginPath(); g.moveTo(bx, bz); g.arc(bx, bz, len, ang - 0.6, ang + 0.6); g.closePath(); g.fill();
+    // Ball
+    g.fillStyle = '#ffc93c'; g.strokeStyle = '#ffffff'; g.lineWidth = 3;
+    g.beginPath(); g.arc(bx, bz, Math.max(11, BOARD.BALL_R * scale * 1.8), 0, Math.PI * 2); g.fill(); g.stroke();
+    g.restore();
+    this.map.tex.needsUpdate = true;
   }
 
   /* ---------------- 3D dialogs (level clear, time's up, pause...) ---------------- */
@@ -130,10 +208,10 @@ export class HUD3D {
     this.dialog.tex.needsUpdate = true;
   }
 
-  setStatus({ level, balls, time, timeLimit, falls, lives, focus = -1, source }) {
+  setStatus({ level, balls, time, timeLimit, falls, lives, source }) {
     const remaining = timeLimit ? Math.max(0, timeLimit - time) : time;
     const t = Math.ceil(remaining);
-    const key = `${level}|${balls.join('')}|${t}|${falls}|${lives}|${focus}|${source}`;
+    const key = `${level}|${balls.join('')}|${t}|${falls}|${lives}|${source}`;
     if (key === this.bar.key) return;
     this.bar.key = key;
     const g = this.bar.ctx, W = 1024, H = 128;
@@ -149,8 +227,7 @@ export class HUD3D {
 
     // Ball tray: filled = home, ring = still in play, dim = in a hole
     balls.forEach((st, i) => {
-      const x = 190 + i * 64, y = H / 2 - 4;
-      if (i === focus) { g.fillStyle = '#ffffff'; g.fillRect(x - 18, y + 32, 36, 6); } // ball the Inside camera follows
+      const x = 190 + i * 64, y = H / 2;
       g.beginPath(); g.arc(x, y, 24, 0, Math.PI * 2);
       if (st === 'captured') { g.fillStyle = BALL_CSS[i]; g.fill(); }
       else { g.lineWidth = 6; g.strokeStyle = st === 'roll' || st === 'hop' ? BALL_CSS[i] : 'rgba(148,163,184,0.4)'; g.stroke(); }
@@ -198,7 +275,7 @@ export class HUD3D {
 
   hideBanner() { this.banner.mesh.visible = false; this.bannerTimer = 0; }
 
-  setVisible(v) { this.bar.mesh.visible = v; if (!v) { this.hideBanner(); this.hideDialog(); } }
+  setVisible(v) { this.bar.mesh.visible = v; if (!v) { this.hideBanner(); this.hideDialog(); this.setMapVisible(false); } }
 
   update(dt) {
     if (this.bannerTimer > 0) {

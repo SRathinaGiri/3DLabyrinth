@@ -37,12 +37,12 @@ Board and ball values multiply together (grip → rolling resistance, bounce →
 - **Stars:** lives keep you playing but cap the rating. A life-saved fall counts like a fall (max ★★), and a rescue gives ★.
 - **3D messages:** Level clear, Rescued, Time's up and Paused are panels **inside the stereo scene** on the zero-parallax plane, so they work in SBS, anaglyph, HSBS glasses and VR. You can tap a button in either eye's half, or use ←/→ + Enter, a gamepad stick + A, or the Quest thumbstick + trigger/A. Only the slider form (⚙ 3D on the pause panel) is a normal 2D screen.
 
-## Inside view & Explorer mode
+## Inside view (1 ball) & minimap
 - **🧍 Inside view** (🎥 button cycles Auto → Whole board → Follow → Inside, or press <kbd>V</kbd>): a chase camera at ball height. Walls are drawn **3.2× taller** in this view only, so the corridors tower around you; the physics doesn't change.
+- **Ball count follows the view:** Inside = **1 ball**, every board view = **3 balls**. Crossing that line mid-level restarts the level, after a 3D "Restart level?" confirmation unless you're in the first 3 s. Esc or "Keep playing" reverts the view.
 - **Controls follow the camera:** forward rolls the ball the way you're looking. The camera turns 90° once the ball has travelled a new corridor for 0.3 s. A 180° turn waits until you stop pushing "back"; otherwise camera-relative controls would ping-pong.
 - **Camera details:** the camera pulls in and booms up when a wall is behind it. A headlamp lights the corridor, and a green light beam over the goal shows the way.
-- **Switching balls:** <kbd>B</kbd> / 🔁 follows the next ball still in play.
-- **🧭 Explorer mode** (menu → Board & Balls → Mode) plays every level with a single ball. Picking it switches to the Inside view.
+- **Minimap** (Inside view only): a 3D panel at screen depth in the top-right of both eyes. It shows the whole maze **heading-up** (rotated in 90° steps so your forward direction is always up), with your ball and view cone, holes, gates, the start ring and the goal.
 
 ## Difficulty curve (`js/config.js`)
 | Level | What gets added |
@@ -64,9 +64,12 @@ python -m http.server 8086
 ```
 Then open http://localhost:8086. Gyro access needs **HTTPS** on real phones; GitHub Pages provides that.
 
+## Releasing
+Bump the version in **all** of: `js/config.js` (`VERSION`), `sw.js` (`CACHE_VERSION`), `manifest.json`, and `index.html` (badge + `?v=` on the CSS/JS). `tests/version.test.mjs` fails if any of them disagree, so an installed PWA always picks up the new cache.
+
 ## Tests
 ```bash
-node --test tests/logic.test.mjs tests/solvable.test.mjs
+node --test tests/logic.test.mjs tests/version.test.mjs tests/solvable.test.mjs
 ```
 - `logic.test.mjs` checks that the mazes are perfect and deterministic, that hurdles never block the path, that balls never tunnel through walls, and that the hole, respawn and goal logic works.
 - `solvable.test.mjs` runs a headless autopilot that clears levels 1–30 with the real physics, ball by ball, timing the gates. It also clears levels 1–12 on the extreme pairings (glass+steel, wood+rubber, marble+rubber, glass+plastic). The time limits are calibrated against it.

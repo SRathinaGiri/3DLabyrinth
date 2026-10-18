@@ -9,7 +9,7 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg">
   <link rel="apple-touch-icon" href="./assets/favicon.svg">
-  <link rel="stylesheet" href="./css/styles.css?v=1.3.0">
+  <link rel="stylesheet" href="./css/styles.css?v=1.4.0">
   <!-- Three.js r128, bundled locally so the PWA works fully offline -->
   <script src="./js/lib/three.min.js"></script>
 </head>
@@ -25,7 +25,7 @@
           <circle cx="6" cy="12" r="1.8" fill="#ffc93c" stroke="none"/>
         </svg>
         <span>3D Labyrinth</span>
-        <span class="version-badge">v1.3.0</span>
+        <span class="version-badge">v1.4.0</span>
       </div>
       <div class="header-controls">
         <button class="icon-btn vr-btn" id="webxrBtn" style="display:none" title="Enter immersive VR (Meta Quest browser)">🥽 VR</button>
@@ -55,13 +55,6 @@
           <span class="look-label">Balls</span>
           <div class="mode-selector" id="ballSelector" role="radiogroup" aria-label="Ball type"></div>
         </div>
-        <div class="look-row">
-          <span class="look-label">Mode</span>
-          <div class="mode-selector" role="radiogroup" aria-label="Game mode">
-            <button class="look-btn play-mode-btn" data-explorer="0" role="radio" title="Guide all three balls home">🎱 Classic · 3 balls</button>
-            <button class="look-btn play-mode-btn" data-explorer="1" role="radio" title="One ball, best with the Inside (ball's-eye) camera">🧭 Explorer · 1 ball</button>
-          </div>
-        </div>
         <div class="look-stats" id="lookStats"></div>
       </section>
 
@@ -78,7 +71,7 @@
           <span class="val sens-val">20°</span>
         </div>
         <p class="hint">Phone: tilt (default) · or drag anywhere on the board like a joystick. Desktop: arrow keys / WASD or mouse-drag. Gamepad stick works too.
-          <kbd>P</kbd> pause · <kbd>R</kbd> restart · <kbd>C</kbd> re-level gyro · <kbd>V</kbd> camera · <kbd>B</kbd> switch ball (Inside view).</p>
+          <kbd>P</kbd> pause · <kbd>R</kbd> restart · <kbd>C</kbd> re-level gyro · <kbd>V</kbd> camera.</p>
       </section>
 
       <section class="card">
@@ -156,7 +149,6 @@
       </div>
       <button class="icon-btn level-btn-big" id="gameCalibrateBtn" title="Treat the current phone position as flat (C)">🎯<span class="lbl"> Re-level</span></button>
       <div class="group">
-        <button class="icon-btn icon-only" id="gameBallBtn" title="Follow the next ball (B)" style="display:none">🔁</button>
         <button class="icon-btn icon-only" id="gameViewBtn" title="Camera (V)">🎥</button>
         <button class="icon-btn icon-only" id="gameGyroBtn" title="Gyroscope">📱</button>
         <button class="icon-btn icon-only" id="gameAudioBtn" title="Sound (M)">🔊</button>
@@ -174,7 +166,7 @@
         <li><strong>❤ Lives</strong> (shared by all balls): +1 the first time you clear a level. A ball that drops into a hole spends a life and hops over it instead of restarting. If the clock runs out and you have a life for every ball still out, they are spent and the level is <em>rescued</em>.</li>
         <li>★★★ = no falls, no lives used, fast · ★★ = up to 2 falls/saves · ★ = cleared or rescued.</li>
         <li><strong>Gyro</strong>: hold the phone however is comfortable — the countdown levels it. Tap <em>🎯 Re-level</em> any time. iPhone asks for motion permission on first play.</li>
-        <li><strong>🧍 Inside view</strong> (🎥 button or <kbd>V</kbd>): a chase camera at ball level, with walls towering around you. Controls follow the camera, so <em>forward</em> rolls the ball the way you're looking. The camera turns when the ball commits to a new corridor. Follow the green light beam to the goal. <kbd>B</kbd> / 🔁 switches ball; <strong>Explorer mode</strong> plays with a single ball.</li>
+        <li><strong>🧍 Inside view</strong> (🎥 button or <kbd>V</kbd>): a chase camera at ball level, with walls towering around you. Controls follow the camera, so <em>forward</em> rolls the ball the way you're looking. The camera turns when the ball commits to a new corridor. It plays with <strong>one ball</strong> (board views always use three); the minimap top-right shows the whole maze with <em>your forward direction up</em>. Follow the green light beam to the goal.</li>
         <li><strong>Gesture</strong>: touch and drag anywhere on the board — the drag distance is the tilt.</li>
       </ul>
       <h3>3D viewing modes</h3>
@@ -196,6 +188,6 @@
     <button id="closeUpdateBtn" class="update-close" title="Dismiss">✖</button>
   </div>
 
-  <script type="module" src="./js/app.js?v=1.3.0"></script>
+  <script type="module" src="./js/app.js?v=1.4.0"></script>
 </body>
 </html>

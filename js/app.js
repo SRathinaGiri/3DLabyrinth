@@ -2,7 +2,7 @@
    3D LABYRINTH - MAIN APPLICATION (game loop, camera, level lifecycle)
    ========================================================================== */
 
-import { VERSION, BOARD, PHYS, LIVES, DEFAULT_LOOK, BALL_COUNT, EXPLORER_BALL_COUNT, INSIDE_VIEW, surfacePhysics, timePace } from './config.js';
+import { VERSION, BOARD, PHYS, LIVES, DEFAULT_LOOK, BALL_COUNT, INSIDE_BALL_COUNT, INSIDE_VIEW, surfacePhysics, timePace } from './config.js';
 import { buildLevel } from './maze.js';
 import { PhysicsWorld } from './physics.js';
 import { StereoRenderEngine } from './renderer.js';
@@ -40,8 +40,6 @@ class GameApp {
     this.focusOffset = 0;
     this.progress = loadProgress();
     this.look = { ...DEFAULT_LOOK }; // board surface + ball type, chosen in the menu
-    this.explorer = false;           // Explorer mode: a single ball (made for the Inside view)
-    this.focusBall = 0;              // ball the Inside camera follows
     this.inside = { dir: [0, -1], yaw: 0, pend: null, pendT: 0, back: INSIDE_VIEW.CAM_BACK };
 
     this.scene = new THREE.Scene();
@@ -83,7 +81,7 @@ class GameApp {
     this.level = buildLevel(n);
     const surf = surfacePhysics(this.look.board, this.look.ball);
     this.level.timeLimit = Math.round(this.level.timeLimit * timePace(surf));
-    this.physics = new PhysicsWorld(this.level, surf, this.explorer ? EXPLORER_BALL_COUNT : BALL_COUNT);
+    this.physics = new PhysicsWorld(this.level, surf, this.ballsForView(this.viewMode));
     // A falling ball spends a life (if any) and hops past the hole instead of restarting
     this.physics.onFallSave = () => this.state === 'PLAYING' && this.spendLives(1);
     this.board.build(this.level, this.look, this.physics.balls.length);
@@ -92,7 +90,7 @@ class GameApp {
     this.inside.dir = p1 ? [Math.sign(p1.c - p0.c), Math.sign(p1.r - p0.r)] : [0, -1];
     this.inside.yaw = Math.atan2(this.inside.dir[0], -this.inside.dir[1]);
     this.inside.pend = null;
-    this.focusBall = 0;
+    this.hud.setMap(this.level);
     this.audio.setMaterials(this.look.board, this.look.ball);
     this.tilt.x = this.tilt.z = 0;
     this.elapsed = 0;
@@ -150,6 +148,8 @@ class GameApp {
         buttons: [{ id: 'resume', label: '▶ Resume' }, { id: 'restart', label: '↻ Restart' }, { id: 'settings', label: '⚙ 3D' }, { id: 'menu', label: '☰ Menu' }]
       });
     } else if (this.state === 'PAUSED') {
+      // Restart dialog dismissed without choosing: keep the view that matches the balls on the board
+      if (this.ballsForView(this.viewMode) !== this.physics.balls.length && this.viewPrev) this.ui.setViewMode(this.viewPrev, true);
       this.state = this.pausedFrom || 'PLAYING';
       this.closeDialog();
       this.ui.hideModals();
@@ -269,6 +269,8 @@ class GameApp {
       case 'next': this.startLevel(this.level.n + 1); break;
       case 'menu': this.stopGame(); break;
       case 'settings': this.ui.showModal('pauseScreen'); break; // sliders need a real 2D form
+      case 'switchView': this.startLevel(this.level.n); break;
+      case 'cancelView': this.ui.setViewMode(this.viewPrev, true); this.togglePause(); break;
     }
   }
 
@@ -289,7 +291,6 @@ class GameApp {
       case 'calibrate': this.calibrate(); break;
       case 'view': this.ui.setViewMode(this.cycleViewMode()); break;
       case 'mute': this.ui.toggleMute(); break;
-      case 'ball': this.nextFocusBall(); break;
       case 'confirm':
         if (this.state === 'MENU') this.startLevel(this.progress.unlocked);
         break;
@@ -303,19 +304,31 @@ class GameApp {
 
   cycleViewMode() {
     const order = ['AUTO', 'OVERVIEW', 'FOLLOW', 'INSIDE'];
-    this.viewMode = order[(order.indexOf(this.viewMode) + 1) % order.length];
-    return this.viewMode;
+    return order[(order.indexOf(this.viewMode) + 1) % order.length]; // the UI applies it (see viewChanged)
   }
 
-  /** Inside view: follow the next ball that is still in play. */
-  nextFocusBall() {
-    if (!this.physics) return;
-    const n = this.physics.balls.length;
-    for (let k = 1; k <= n; k++) {
-      const i = (this.focusBall + k) % n;
-      if (this.physics.balls[i].state !== 'captured') { this.focusBall = i; break; }
+  ballsForView(mode) { return mode === 'INSIDE' ? INSIDE_BALL_COUNT : BALL_COUNT; }
+
+  /**
+   * Called by the UI after the view changed. Inside = 1 ball, board views = 3, so crossing that
+   * line mid-level needs a restart: silent in the first seconds, otherwise confirmed in a 3D dialog.
+   */
+  viewChanged(prev) {
+    if (!this.level || this.state === 'MENU' || this.state === 'COMPLETE' || this.state === 'FAILED') return;
+    if (this.ballsForView(this.viewMode) === this.physics.balls.length) return;
+    if (this.elapsed < 3) { this.startLevel(this.level.n); return; }
+    if (this.state === 'PLAYING' || this.state === 'COUNTDOWN') {
+      this.pausedFrom = this.state;
+      this.state = 'PAUSED';
+      this.controls.resetManual();
     }
-    this.inside.pend = null;
+    this.viewPrev = prev;
+    const n = this.ballsForView(this.viewMode);
+    this.openDialog({
+      title: 'RESTART LEVEL?', color: '#ffc93c',
+      lines: [this.viewMode === 'INSIDE' ? 'Inside view plays with 1 ball.' : 'Board views play with 3 balls.', `Level ${this.level.n} restarts with ${n} ${n === 1 ? 'ball' : 'balls'}.`],
+      buttons: [{ id: 'switchView', label: '↻ Restart' }, { id: 'cancelView', label: '✖ Keep playing' }]
+    });
   }
 
   vibrate(p) { if (navigator.vibrate) { try { navigator.vibrate(p); } catch (_) { /* unsupported */ } } }
@@ -374,7 +387,6 @@ class GameApp {
       timeLimit: this.level.timeLimit,
       falls: this.physics.falls,
       lives: this.progress.lives,
-      focus: this.viewMode === 'INSIDE' && this.physics.balls.length > 1 ? this.focusBall : -1,
       source: this.controls.source
     });
   }
@@ -386,6 +398,7 @@ class GameApp {
     this.board.setWallTarget(inside ? INSIDE_VIEW.WALL_SCALE : 1, dt);
     this.physics.hopHeight = PHYS.HOP_HEIGHT + BOARD.WALL_H * (this.board.wallScale - 1); // clear the taller walls
     r.fov += ((inside ? INSIDE_VIEW.FOV : 50) - r.fov) * Math.min(1, 4 * dt);
+    this.hud.setMapVisible(inside && !this.hud.dialogVisible && this.physics.balls.length === 1);
     if (inside) { this.updateInsideCamera(dt); return; }
     const { W, H } = this.board.extent;
     const aspect = r.eyeAspect();
@@ -434,8 +447,7 @@ class GameApp {
   /** Ball's-eye chase camera. Positions are computed in board space so it rides the tilting board. */
   updateInsideCamera(dt) {
     const r = this.renderer, V = INSIDE_VIEW, ins = this.inside, balls = this.physics.balls;
-    let b = balls[this.focusBall];
-    if (!b || b.state === 'captured') { this.nextFocusBall(); b = balls[this.focusBall]; }
+    const b = balls[0];
 
     // Turn the camera only once the ball has committed to a new corridor direction.
     // A 180° turn waits until the player stops pushing "back", else camera-relative
@@ -479,6 +491,7 @@ class GameApp {
     r.cameraGroup.position.copy(eye);
     r.cameraGroup.quaternion.setFromRotationMatrix(m);
     this.board.setHeadlamp(eye, look);
+    this.hud.updateMap(b, ins.dir, dt);
 
     const dist = Math.hypot(ins.back, V.CAM_HEIGHT - BOARD.BALL_R);
     this.cam.dist = dist;
