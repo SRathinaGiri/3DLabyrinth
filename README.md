@@ -37,6 +37,13 @@ Board and ball values multiply together (grip → rolling resistance, bounce →
 - **Stars:** lives keep you playing but cap the rating. A life-saved fall counts like a fall (max ★★), and a rescue gives ★.
 - **3D messages:** Level clear, Rescued, Time's up and Paused are panels **inside the stereo scene** on the zero-parallax plane, so they work in SBS, anaglyph, HSBS glasses and VR. You can tap a button in either eye's half, or use ←/→ + Enter, a gamepad stick + A, or the Quest thumbstick + trigger/A. Only the slider form (⚙ 3D on the pause panel) is a normal 2D screen.
 
+## Inside view & Explorer mode
+- **🧍 Inside view** (🎥 button cycles Auto → Whole board → Follow → Inside, or press <kbd>V</kbd>): a chase camera at ball height. Walls are drawn **3.2× taller** in this view only, so the corridors tower around you; the physics doesn't change.
+- **Controls follow the camera:** forward rolls the ball the way you're looking. The camera turns 90° once the ball has travelled a new corridor for 0.3 s. A 180° turn waits until you stop pushing "back"; otherwise camera-relative controls would ping-pong.
+- **Camera details:** the camera pulls in and booms up when a wall is behind it. A headlamp lights the corridor, and a green light beam over the goal shows the way.
+- **Switching balls:** <kbd>B</kbd> / 🔁 follows the next ball still in play.
+- **🧭 Explorer mode** (menu → Board & Balls → Mode) plays every level with a single ball. Picking it switches to the Inside view.
+
 ## Difficulty curve (`js/config.js`)
 | Level | What gets added |
 |---|---|

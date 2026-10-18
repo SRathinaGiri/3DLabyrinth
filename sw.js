@@ -1,5 +1,5 @@
 // Service Worker for 3D Labyrinth PWA (network-first, offline fallback; pattern from 3D Tunnel Rush)
-const CACHE_VERSION = 'labyrinth-v1.2.0';
+const CACHE_VERSION = 'labyrinth-v1.3.0';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -40,8 +40,12 @@ self.addEventListener('message', event => {
 
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
+  // Revalidate with the server ('no-cache'): otherwise the HTTP cache can serve stale ES modules
+  // after an update and mix old and new code. Navigations can't take a RequestInit, so fetch them as-is.
+  const req = event.request;
+  const network = req.mode === 'navigate' ? fetch(req) : fetch(req, { cache: 'no-cache' });
   event.respondWith(
-    fetch(event.request).then(res => {
+    network.then(res => {
       if (res && res.status === 200 && res.type === 'basic') {
         const copy = res.clone();
         caches.open(CACHE_VERSION).then(cache => cache.put(event.request, copy));

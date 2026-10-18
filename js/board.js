@@ -24,6 +24,10 @@ export class BoardView {
     this.sun.shadow.bias = -0.0008;
     this.world.add(this.sun, this.sun.target);
 
+    // Headlamp for the Inside view: tall corridor walls shade the floor, so light it from the camera
+    this.lamp = new THREE.PointLight(0xfff4e0, 0, 9, 1.6);
+    scene.add(this.lamp);
+
     this.stars = this.makeStars();
     scene.add(this.stars);
 
@@ -32,7 +36,9 @@ export class BoardView {
     this.disposables = [];
     this.sliderMeshes = [];
     this.goalRing = null;
+    this.beacon = null;
     this.elapsed = 0;
+    this.wallScale = 1; // >1 in the Inside view: corridors tower over the chase camera
   }
 
   makeStars() {
@@ -58,8 +64,12 @@ export class BoardView {
 
   track(...items) { this.disposables.push(...items); return items[0]; }
 
-  build(level, look = DEFAULT_LOOK) {
+  build(level, look = DEFAULT_LOOK, ballCount = BALL_COLORS.length) {
     this.clear();
+    // Walls, caps and gates live in one group so the Inside view can raise them in one scale
+    this.wallGroup = new THREE.Group();
+    this.wallGroup.scale.y = this.wallScale;
+    this.boardGroup.add(this.wallGroup);
     this.level = level;
     const L = boardLook(look.board, level.n, this.env);
     this.track(L.floor, L.side, L.wall, L.cap, L.base, ...L.textures);
@@ -138,7 +148,7 @@ export class BoardView {
       caps.setMatrixAt(i, m.compose(p, q, s));
     });
     walls.castShadow = true; walls.receiveShadow = !L.wall.transparent;
-    this.boardGroup.add(walls, caps);
+    this.wallGroup.add(walls, caps);
 
     // Base plate under the pits: gives the board a solid silhouette against the stars
     const base = new THREE.Mesh(this.track(new THREE.BoxGeometry(W + 1.2, 0.25, H + 1.2)), L.base);
@@ -153,12 +163,19 @@ export class BoardView {
       const mesh = new THREE.Mesh(geo, sliderMat);
       mesh.position.set(sl.x, hgt / 2, sl.z);
       mesh.castShadow = true;
-      this.boardGroup.add(mesh);
+      this.wallGroup.add(mesh);
       this.sliderMeshes.push(mesh);
     }
 
     // Balls
-    BALL_COLORS.forEach(color => {
+    // Goal beacon: a soft light column, shown in the Inside view so you can find the goal from ball level
+    const beamMat = this.track(new THREE.MeshBasicMaterial({ color: 0x34ff9a, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+    this.beacon = new THREE.Mesh(this.track(new THREE.CylinderGeometry(0.32, 0.55, 14, 24, 1, true)), beamMat);
+    this.beacon.position.set(level.goal.x, 7, level.goal.z);
+    this.beacon.visible = false;
+    this.boardGroup.add(this.beacon);
+
+    BALL_COLORS.slice(0, ballCount).forEach(color => {
       const mat = ballMaterial(look.ball, color, this.env);
       this.track(mat, ...(mat.map ? [mat.map] : []));
       const ball = new THREE.Mesh(this.ballGeo, mat);
@@ -175,6 +192,23 @@ export class BoardView {
     Object.assign(this.sun.shadow.camera, { left: -ext, right: ext, top: ext, bottom: -ext, near: 1, far: ext * 5 });
     this.sun.shadow.camera.updateProjectionMatrix();
     this.extent = { W, H };
+  }
+
+  /** Ease walls toward the target height (1 = normal, INSIDE_VIEW.WALL_SCALE = towering). */
+  setWallTarget(target, dt) {
+    this.wallScale += (target - this.wallScale) * Math.min(1, 4 * dt);
+    if (Math.abs(target - this.wallScale) < 0.002) this.wallScale = target;
+    if (this.wallGroup) this.wallGroup.scale.y = this.wallScale;
+    if (this.beacon) {
+      const k = Math.max(0, Math.min(1, (this.wallScale - 1) / 1.5));
+      this.beacon.visible = k > 0.01;
+      this.beacon.material.opacity = k * (0.22 + Math.sin(this.elapsed * 3) * 0.06);
+    }
+    this.lamp.intensity = Math.max(0, Math.min(1, (this.wallScale - 1) / 1.5)) * 1.1;
+  }
+
+  setHeadlamp(eye, look) {
+    this.lamp.position.copy(eye).lerp(look, 0.25);
   }
 
   /** Sync meshes to physics + visual tilt. */

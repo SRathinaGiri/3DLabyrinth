@@ -5,7 +5,7 @@
 import { BOARD_SURFACES, BALL_TYPES, PHYS, LIVES, surfacePhysics, timePace } from './config.js';
 
 const SETTINGS_KEY = '3d_labyrinth_settings';
-const VIEW_LABEL = { AUTO: '🎥 View: Auto', OVERVIEW: '🗺️ View: Whole board', FOLLOW: '🎯 View: Follow balls' };
+const VIEW_LABEL = { AUTO: '🎥 View: Auto', OVERVIEW: '🗺️ View: Whole board', FOLLOW: '🎯 View: Follow balls', INSIDE: '🧍 View: Inside (ball cam)' };
 
 const $ = id => document.getElementById(id);
 
@@ -48,6 +48,12 @@ export class UIManager {
     ['audioToggle', 'gameAudioBtn'].forEach(id => this.on(id, () => this.toggleMute()));
     ['gyroToggle', 'gameGyroBtn'].forEach(id => this.on(id, () => this.toggleGyro()));
     ['viewModeBtn', 'gameViewBtn'].forEach(id => this.on(id, () => this.setViewMode(a.cycleViewMode())));
+    this.on('gameBallBtn', () => a.nextFocusBall());
+    document.querySelectorAll('.play-mode-btn').forEach(btn => btn.addEventListener('click', e => {
+      e.preventDefault();
+      this.setExplorer(btn.dataset.explorer === '1', true);
+      this.saveSettings();
+    }));
     this.on('helpBtn', () => { $('infoDrawer').classList.remove('hidden'); });
     this.on('closeInfoBtn', () => { $('infoDrawer').classList.add('hidden'); });
   }
@@ -177,10 +183,28 @@ export class UIManager {
     $('gameGyroBtn') && $('gameGyroBtn').classList.toggle('active', on);
   }
 
+  /** Explorer = one ball. Picking it from the menu also switches to the Inside camera it is made for. */
+  setExplorer(on, fromClick = false) {
+    this.app.explorer = on;
+    document.querySelectorAll('.play-mode-btn').forEach(b => {
+      const active = (b.dataset.explorer === '1') === on;
+      b.classList.toggle('active', active);
+      b.setAttribute('aria-checked', active);
+    });
+    if (on && fromClick) this.setViewMode('INSIDE');
+    this.syncBallBtn();
+  }
+
+  /** 🔁 only makes sense in the Inside view with more than one ball. */
+  syncBallBtn() {
+    if ($('gameBallBtn')) $('gameBallBtn').style.display = this.app.viewMode === 'INSIDE' && !this.app.explorer ? '' : 'none';
+  }
+
   setViewMode(mode) {
     this.app.viewMode = mode;
     if ($('viewModeBtn')) $('viewModeBtn').textContent = VIEW_LABEL[mode];
-    if ($('gameViewBtn')) $('gameViewBtn').title = VIEW_LABEL[mode];
+    if ($('gameViewBtn')) { $('gameViewBtn').title = VIEW_LABEL[mode]; $('gameViewBtn').textContent = mode === 'INSIDE' ? '🧍' : '🎥'; }
+    this.syncBallBtn();
     this.saveSettings();
   }
 
@@ -236,6 +260,7 @@ export class UIManager {
       viewMode: a.viewMode,
       muted: a.audio.muted,
       gyroWanted: a.controls.gyroWanted,
+      explorer: a.explorer,
       gyroSensitivity: a.controls.gyroSensitivity,
       invertY: a.controls.invertY,
       board: a.look.board,
@@ -261,6 +286,7 @@ export class UIManager {
     this.syncGyro(false);
     this.setViewMode(s.viewMode || 'AUTO');
     this.setLook({ board: s.board || 'neon', ball: s.ball || 'plastic' });
+    this.setExplorer(!!s.explorer);
     this.loading = false;
   }
 }

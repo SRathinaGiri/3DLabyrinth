@@ -2,7 +2,7 @@
    3D LABYRINTH - MAIN APPLICATION (game loop, camera, level lifecycle)
    ========================================================================== */
 
-import { VERSION, BOARD, PHYS, LIVES, DEFAULT_LOOK, surfacePhysics, timePace } from './config.js';
+import { VERSION, BOARD, PHYS, LIVES, DEFAULT_LOOK, BALL_COUNT, EXPLORER_BALL_COUNT, INSIDE_VIEW, surfacePhysics, timePace } from './config.js';
 import { buildLevel } from './maze.js';
 import { PhysicsWorld } from './physics.js';
 import { StereoRenderEngine } from './renderer.js';
@@ -40,6 +40,9 @@ class GameApp {
     this.focusOffset = 0;
     this.progress = loadProgress();
     this.look = { ...DEFAULT_LOOK }; // board surface + ball type, chosen in the menu
+    this.explorer = false;           // Explorer mode: a single ball (made for the Inside view)
+    this.focusBall = 0;              // ball the Inside camera follows
+    this.inside = { dir: [0, -1], yaw: 0, pend: null, pendT: 0, back: INSIDE_VIEW.CAM_BACK };
 
     this.scene = new THREE.Scene();
     const canvas = document.getElementById('gameCanvas');
@@ -80,10 +83,16 @@ class GameApp {
     this.level = buildLevel(n);
     const surf = surfacePhysics(this.look.board, this.look.ball);
     this.level.timeLimit = Math.round(this.level.timeLimit * timePace(surf));
-    this.physics = new PhysicsWorld(this.level, surf);
+    this.physics = new PhysicsWorld(this.level, surf, this.explorer ? EXPLORER_BALL_COUNT : BALL_COUNT);
     // A falling ball spends a life (if any) and hops past the hole instead of restarting
     this.physics.onFallSave = () => this.state === 'PLAYING' && this.spendLives(1);
-    this.board.build(this.level, this.look);
+    this.board.build(this.level, this.look, this.physics.balls.length);
+    // Inside camera starts facing down the first corridor of the solution path
+    const [p0, p1] = this.level.path;
+    this.inside.dir = p1 ? [Math.sign(p1.c - p0.c), Math.sign(p1.r - p0.r)] : [0, -1];
+    this.inside.yaw = Math.atan2(this.inside.dir[0], -this.inside.dir[1]);
+    this.inside.pend = null;
+    this.focusBall = 0;
     this.audio.setMaterials(this.look.board, this.look.ball);
     this.tilt.x = this.tilt.z = 0;
     this.elapsed = 0;
@@ -214,7 +223,7 @@ class GameApp {
     const out = this.physics.balls.length - this.physics.captured;
     this.openDialog({
       title: "TIME'S UP", color: '#ff3b5c',
-      lines: [`${this.physics.captured}/3 balls home`, `Rescue needs ${out} ❤ · you have ${this.progress.lives}`],
+      lines: [`${this.physics.captured}/${this.physics.balls.length} balls home`, `Rescue needs ${out} ❤ · you have ${this.progress.lives}`],
       buttons: [{ id: 'retry', label: '↻ Try again' }, { id: 'menu', label: '☰ Menu' }]
     });
   }
@@ -280,6 +289,7 @@ class GameApp {
       case 'calibrate': this.calibrate(); break;
       case 'view': this.ui.setViewMode(this.cycleViewMode()); break;
       case 'mute': this.ui.toggleMute(); break;
+      case 'ball': this.nextFocusBall(); break;
       case 'confirm':
         if (this.state === 'MENU') this.startLevel(this.progress.unlocked);
         break;
@@ -292,9 +302,20 @@ class GameApp {
   }
 
   cycleViewMode() {
-    const order = ['AUTO', 'OVERVIEW', 'FOLLOW'];
+    const order = ['AUTO', 'OVERVIEW', 'FOLLOW', 'INSIDE'];
     this.viewMode = order[(order.indexOf(this.viewMode) + 1) % order.length];
     return this.viewMode;
+  }
+
+  /** Inside view: follow the next ball that is still in play. */
+  nextFocusBall() {
+    if (!this.physics) return;
+    const n = this.physics.balls.length;
+    for (let k = 1; k <= n; k++) {
+      const i = (this.focusBall + k) % n;
+      if (this.physics.balls[i].state !== 'captured') { this.focusBall = i; break; }
+    }
+    this.inside.pend = null;
   }
 
   vibrate(p) { if (navigator.vibrate) { try { navigator.vibrate(p); } catch (_) { /* unsupported */ } } }
@@ -304,7 +325,14 @@ class GameApp {
     const input = this.controls.tilt;
     const active = this.state === 'PLAYING';
     const maxTilt = this.level.params.maxTiltDeg * DEG;
-    const tx = active ? input.x * maxTilt : 0, tz = active ? input.y * maxTilt : 0;
+    let ix = input.x, iy = input.y;
+    if (this.viewMode === 'INSIDE') {
+      // Camera-relative: "forward" rolls the ball the way the camera faces
+      const [fx, fz] = this.inside.dir;
+      const ax = ix * -fz + iy * fx, az = ix * fx + iy * fz;
+      ix = ax; iy = -az;
+    }
+    const tx = active ? ix * maxTilt : 0, tz = active ? iy * maxTilt : 0;
     const k = Math.min(1, PHYS.TILT_RATE * dt);
     this.tilt.x += (tx - this.tilt.x) * k;
     this.tilt.z += (tz - this.tilt.z) * k;
@@ -346,6 +374,7 @@ class GameApp {
       timeLimit: this.level.timeLimit,
       falls: this.physics.falls,
       lives: this.progress.lives,
+      focus: this.viewMode === 'INSIDE' && this.physics.balls.length > 1 ? this.focusBall : -1,
       source: this.controls.source
     });
   }
@@ -353,6 +382,11 @@ class GameApp {
   updateCamera(dt) {
     const r = this.renderer, xr = r.renderer.xr.isPresenting;
     if (xr) return;
+    const inside = this.viewMode === 'INSIDE';
+    this.board.setWallTarget(inside ? INSIDE_VIEW.WALL_SCALE : 1, dt);
+    this.physics.hopHeight = PHYS.HOP_HEIGHT + BOARD.WALL_H * (this.board.wallScale - 1); // clear the taller walls
+    r.fov += ((inside ? INSIDE_VIEW.FOV : 50) - r.fov) * Math.min(1, 4 * dt);
+    if (inside) { this.updateInsideCamera(dt); return; }
     const { W, H } = this.board.extent;
     const aspect = r.eyeAspect();
     const vf = (r.fov / 2) * DEG, hf = Math.atan(Math.tan(vf) * aspect);
@@ -395,6 +429,62 @@ class GameApp {
     // Stereo follows the viewing distance so depth feels the same on a 5x5 or a 16x16 board
     r.setFocalLength(this.cam.dist * (1 + this.focusOffset));
     r.setEyeDistance(this.depth * this.cam.dist * STEREO_RATIO);
+  }
+
+  /** Ball's-eye chase camera. Positions are computed in board space so it rides the tilting board. */
+  updateInsideCamera(dt) {
+    const r = this.renderer, V = INSIDE_VIEW, ins = this.inside, balls = this.physics.balls;
+    let b = balls[this.focusBall];
+    if (!b || b.state === 'captured') { this.nextFocusBall(); b = balls[this.focusBall]; }
+
+    // Turn the camera only once the ball has committed to a new corridor direction.
+    // A 180° turn waits until the player stops pushing "back", else camera-relative
+    // controls would ping-pong (back -> camera flips -> back now means forward).
+    const sp = Math.hypot(b.vx, b.vz);
+    if (b.state === 'roll' && sp > 1.0 && this.state === 'PLAYING') {
+      const cand = Math.abs(b.vx) > Math.abs(b.vz) ? [Math.sign(b.vx), 0] : [0, Math.sign(b.vz)];
+      const same = cand[0] === ins.dir[0] && cand[1] === ins.dir[1];
+      const reverse = cand[0] === -ins.dir[0] && cand[1] === -ins.dir[1];
+      const holdingBack = this.controls.tilt.y < -0.3;
+      if (same || (reverse && holdingBack)) ins.pend = null;
+      else if (ins.pend && ins.pend[0] === cand[0] && ins.pend[1] === cand[1]) {
+        ins.pendT += dt;
+        if (ins.pendT > (reverse ? V.TURN_COMMIT * 3 : V.TURN_COMMIT)) { ins.dir = cand; ins.pend = null; }
+      } else { ins.pend = cand; ins.pendT = 0; }
+    }
+    const targetYaw = Math.atan2(ins.dir[0], -ins.dir[1]);
+    let dy = targetYaw - ins.yaw;
+    dy = Math.atan2(Math.sin(dy), Math.cos(dy)); // shortest way round
+    ins.yaw += dy * Math.min(1, V.TURN_RATE * dt);
+    const fx = Math.sin(ins.yaw), fz = -Math.cos(ins.yaw);
+
+    // Pull the camera in if a wall sits between it and the ball
+    let back = V.CAM_BACK;
+    for (let s = 0.35; s <= V.CAM_BACK; s += 0.1) {
+      const px = b.x - fx * s, pz = b.z - fz * s, m = 0.2;
+      if (this.physics.walls.some(w => px > w.minX - m && px < w.maxX + m && pz > w.minZ - m && pz < w.maxZ + m)) { back = Math.max(0.35, s - 0.1); break; }
+    }
+    ins.back += (back - ins.back) * Math.min(1, (back < ins.back ? 12 : 3) * dt);
+
+    const by = Math.max(BOARD.BALL_R, b.y);
+    // Boxed in by a wall behind? Boom up and look down over the ball instead of crowding it
+    const boom = (V.CAM_BACK - ins.back) * 0.9;
+    const eye = new THREE.Vector3(b.x - fx * ins.back, V.CAM_HEIGHT + boom + (by - BOARD.BALL_R) * 0.6, b.z - fz * ins.back);
+    const look = new THREE.Vector3(b.x + fx * V.LOOK_AHEAD, 0.45 + (by - BOARD.BALL_R) * 0.4, b.z + fz * V.LOOK_AHEAD);
+    this.board.boardGroup.updateMatrixWorld();
+    eye.applyMatrix4(this.board.boardGroup.matrixWorld);
+    look.applyMatrix4(this.board.boardGroup.matrixWorld);
+    // World "up" keeps the horizon level, so you see the floor tilt under the ball
+    const m = new THREE.Matrix4().lookAt(eye, look, new THREE.Vector3(0, 1, 0));
+    r.cameraGroup.position.copy(eye);
+    r.cameraGroup.quaternion.setFromRotationMatrix(m);
+    this.board.setHeadlamp(eye, look);
+
+    const dist = Math.hypot(ins.back, V.CAM_HEIGHT - BOARD.BALL_R);
+    this.cam.dist = dist;
+    this.cam.ready = false; // snap back cleanly when leaving the Inside view
+    r.setFocalLength(dist * (1 + this.focusOffset));
+    r.setEyeDistance(this.depth * dist * STEREO_RATIO);
   }
 
   animate(timestamp) {

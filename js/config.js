@@ -4,7 +4,7 @@
    Pure module (no THREE / DOM) so it can be unit-tested in Node.
    ========================================================================== */
 
-export const VERSION = '1.2.0';
+export const VERSION = '1.3.0';
 
 // Board geometry (world units; one maze cell = CELL x CELL)
 export const BOARD = {
@@ -91,7 +91,19 @@ export function timePace(surf) {
   return Math.max(1.0, Math.min(1.4, Math.pow(ratio, 0.3) / surf.accel));
 }
 
-export const BALL_COUNT = 3;
+export const BALL_COUNT = 3;          // Classic mode
+export const EXPLORER_BALL_COUNT = 1; // Explorer mode: one ball, made for the Inside camera
+
+// "Inside" chase camera (ball's-eye view). Walls are drawn taller in this view only; physics is unchanged.
+export const INSIDE_VIEW = {
+  CAM_HEIGHT: 0.95,   // eye height above the floor
+  CAM_BACK: 2.3,      // distance behind the ball (shortened if a wall is in the way)
+  LOOK_AHEAD: 2.6,
+  FOV: 72,
+  WALL_SCALE: 3.2,    // visual wall height multiplier, so corridors tower over the camera
+  TURN_COMMIT: 0.3,   // seconds the ball must travel a new corridor direction before the camera turns
+  TURN_RATE: 5        // camera yaw smoothing (1/s)
+};
 export const BALL_COLORS = [0xffc93c, 0x00f0ff, 0xff4fa3];
 
 // Time limit = (pathCells * PER_CELL + BASE + sliders * PER_SLIDER) * timeFactor

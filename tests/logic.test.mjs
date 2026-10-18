@@ -159,3 +159,13 @@ test('a life-saved ball hops past the hole to safe ground nearer the goal', () =
   w.step(1 / 60, 0, 0);
   assert.equal(w.falls, 1);
 });
+
+test('explorer mode: a single ball starts centred and completes the level alone', () => {
+  const L = buildLevel(4);
+  const w = new PhysicsWorld(L, undefined, 1);
+  assert.equal(w.balls.length, 1);
+  assert.ok(Math.hypot(w.balls[0].x - L.startPos.x, w.balls[0].z - L.startPos.z) < 1e-9);
+  Object.assign(w.balls[0], { x: L.goal.x, z: L.goal.z });
+  for (let f = 0; f < 30; f++) w.step(1 / 60, 0, 0);
+  assert.ok(w.allHome);
+});

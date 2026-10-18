@@ -2,7 +2,7 @@
   "name": "3D Labyrinth",
   "short_name": "Labyrinth3D",
   "description": "Tilt-maze game: guide three balls home. 2D, Parallel, Cross-eye, Anaglyph, Smart-glasses and VR stereo modes.",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "start_url": "./index.html",
   "display": "standalone",
   "orientation": "any",

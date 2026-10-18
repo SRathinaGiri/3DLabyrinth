@@ -130,10 +130,10 @@ export class HUD3D {
     this.dialog.tex.needsUpdate = true;
   }
 
-  setStatus({ level, balls, time, timeLimit, falls, lives, source }) {
+  setStatus({ level, balls, time, timeLimit, falls, lives, focus = -1, source }) {
     const remaining = timeLimit ? Math.max(0, timeLimit - time) : time;
     const t = Math.ceil(remaining);
-    const key = `${level}|${balls.join('')}|${t}|${falls}|${lives}|${source}`;
+    const key = `${level}|${balls.join('')}|${t}|${falls}|${lives}|${focus}|${source}`;
     if (key === this.bar.key) return;
     this.bar.key = key;
     const g = this.bar.ctx, W = 1024, H = 128;
@@ -149,7 +149,8 @@ export class HUD3D {
 
     // Ball tray: filled = home, ring = still in play, dim = in a hole
     balls.forEach((st, i) => {
-      const x = 190 + i * 64, y = H / 2;
+      const x = 190 + i * 64, y = H / 2 - 4;
+      if (i === focus) { g.fillStyle = '#ffffff'; g.fillRect(x - 18, y + 32, 36, 6); } // ball the Inside camera follows
       g.beginPath(); g.arc(x, y, 24, 0, Math.PI * 2);
       if (st === 'captured') { g.fillStyle = BALL_CSS[i]; g.fill(); }
       else { g.lineWidth = 6; g.strokeStyle = st === 'roll' || st === 'hop' ? BALL_CSS[i] : 'rgba(148,163,184,0.4)'; g.stroke(); }

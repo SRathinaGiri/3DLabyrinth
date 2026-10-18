@@ -10,11 +10,12 @@ import { hopTarget } from './maze.js';
 const R = BOARD.BALL_R;
 // Triangle formation inside the start cell
 const START_OFFSETS = [[-0.42, 0.3], [0.42, 0.3], [0, -0.38]];
+const SOLO_OFFSETS = [[0, 0]];
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
 export class PhysicsWorld {
-  constructor(level, surface = surfacePhysics()) {
+  constructor(level, surface = surfacePhysics(), ballCount = BALL_COUNT) {
     this.level = level;
     this.surf = surface; // grip / bounce for the chosen board + ball materials
     this.walls = level.walls;
@@ -23,7 +24,9 @@ export class PhysicsWorld {
     this.sliders = level.sliders.map(s => ({ ...s, box: { minX: 0, maxX: 0, minZ: 0, maxZ: 0 }, vx: 0, vz: 0 }));
     this.time = 0;
     this.balls = [];
-    for (let i = 0; i < BALL_COUNT; i++) {
+    this.offsets = ballCount === 1 ? SOLO_OFFSETS : START_OFFSETS;
+    this.hopHeight = PHYS.HOP_HEIGHT; // raised by the app when walls are drawn tall
+    for (let i = 0; i < ballCount; i++) {
       this.balls.push({ id: i, x: 0, z: 0, y: R, vx: 0, vz: 0, vy: 0, state: 'roll', timer: 0, slot: -1, fx: 0, fz: 0 });
       this.placeAtStart(this.balls[i], i, true);
     }
@@ -36,8 +39,9 @@ export class PhysicsWorld {
 
   placeAtStart(b, slotHint = 0, force = false) {
     const sp = this.level.startPos;
-    for (let k = 0; k < START_OFFSETS.length; k++) {
-      const [ox, oz] = START_OFFSETS[(slotHint + k) % START_OFFSETS.length];
+    const offs = this.offsets;
+    for (let k = 0; k < offs.length; k++) {
+      const [ox, oz] = offs[(slotHint + k) % offs.length];
       const x = sp.x + ox, z = sp.z + oz;
       const free = force || this.balls.every(o => o === b || o.state !== 'roll' || (o.x - x) ** 2 + (o.z - z) ** 2 > (2 * R + 0.02) ** 2);
       if (free) {
@@ -138,7 +142,7 @@ export class PhysicsWorld {
       const p = b.timer, e = p * p * (3 - 2 * p); // smoothstep glide
       b.x = b.hx0 + (b.hx1 - b.hx0) * e;
       b.z = b.hz0 + (b.hz1 - b.hz0) * e;
-      b.y = R + Math.sin(Math.PI * p) * PHYS.HOP_HEIGHT;
+      b.y = R + Math.sin(Math.PI * p) * this.hopHeight;
       if (p >= 1) { b.state = 'roll'; b.y = R; }
     } else if (b.state === 'falling') {
       b.vy -= 30 * h; b.y += b.vy * h;
