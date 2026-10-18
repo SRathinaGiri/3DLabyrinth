@@ -4,7 +4,7 @@
    Pure module (no THREE / DOM) so it can be unit-tested in Node.
    ========================================================================== */
 
-export const VERSION = '1.6.0';
+export const VERSION = '1.6.1';
 
 // Board geometry (world units; one maze cell = CELL x CELL)
 export const BOARD = {
@@ -137,6 +137,8 @@ export function levelParams(n) {
     sliders: L < 4 ? 0 : Math.min(1 + Math.floor((L - 4) / 3), 6),
     sliderSpeed: 1.2 + Math.min(L * 0.08, 1.6), // rad/s
     // 0 = untimed. Early levels are untimed so first-time players can learn tilt.
-    timeFactor: L < 3 ? 0 : Math.max(0.6, 1.05 - L * 0.025)
+    // Floor 0.82 keeps every level >= ~2.4x a careful single-ball run (tests/solvable.test.mjs):
+    // three balls split up at every gate, so tighter than that is out of reach even for experts.
+    timeFactor: L < 3 ? 0 : Math.max(0.82, 1.05 - L * 0.015)
   };
 }

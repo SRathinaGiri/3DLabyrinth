@@ -51,7 +51,7 @@ Board and ball values multiply together (grip → rolling resistance, bounce →
 |---|---|
 | 1–2 | 5×5 maze, no hurdles, untimed |
 | 2+ | Side holes in dead-end branches (traps for overshooting balls) |
-| 3+ | Time limit, scaled to the length of the solution path |
+| 3+ | Time limit, scaled to the length of the solution path; tightens from ~3.3× to a floor of ~2.4× a careful single-ball run, so experts can still bring three balls home on the hardest levels |
 | 4+ | Sliding gates that sweep across corridors |
 | 5+ | Holes offset into straight corridors, leaving a narrow lane to pass |
 | 8+ | Holes in the outer corner of turns, which catch balls that take corners too fast |
@@ -74,7 +74,7 @@ Bump the version in **all** of: `js/config.js` (`VERSION`), `sw.js` (`CACHE_VERS
 node --test tests/logic.test.mjs tests/version.test.mjs tests/solvable.test.mjs
 ```
 - `logic.test.mjs` checks that the mazes are perfect and deterministic, that hurdles never block the path, that balls never tunnel through walls, and that the hole, respawn and goal logic works.
-- `solvable.test.mjs` runs a headless autopilot that clears levels 1–30 with the real physics, ball by ball, timing the gates. It also clears levels 1–12 on the extreme pairings (glass+steel, wood+rubber, marble+rubber, glass+plastic). The time limits are calibrated against it.
+- `solvable.test.mjs` runs a headless autopilot that clears levels 1–40 (and asserts every timer is ≥ 2.3× its careful per-ball time) with the real physics, ball by ball, timing the gates. It also clears levels 1–12 on the extreme pairings (glass+steel, wood+rubber, marble+rubber, glass+plastic). The time limits are calibrated against it.
 
 ## Structure
 ```

@@ -30,8 +30,8 @@ function solve(n, board = 'neon', ball = 'plastic', maxSeconds = 2400, target = 
   const w = new PhysicsWorld(L, surf);
   const forApple = target === 'apple';
   const tCell = forApple ? { c: L.apples[0].c, r: L.apples[0].r } : L.finish;
-  const route = forApple ? routeCells(L, L.start, tCell) : L.path;
-  const pts = route.map(q => cellCenter(L, q.c, q.r));
+  let route = forApple ? routeCells(L, L.start, tCell) : L.path;
+  let pts = route.map(q => cellCenter(L, q.c, q.r));
   if (!forApple) pts.push({ x: L.goal.x, z: L.goal.z });
   // Distance-to-target map, so a ball knocked into a side branch can route back
   const key = (c, r) => r * L.cols + c;
@@ -43,7 +43,16 @@ function solve(n, board = 'neon', ball = 'plastic', maxSeconds = 2400, target = 
       if (!toGoal.has(key(nb.c, nb.r))) { toGoal.set(key(nb.c, nb.r), toGoal.get(key(q.c, q.r)) + 1); bq.push(nb); }
     }
   }
-  const pathIdx = new Map(route.map((q, i) => [key(q.c, q.r), i]));
+  let pathIdx = new Map(route.map((q, i) => [key(q.c, q.r), i]));
+  // Re-plan from wherever the ball ended up (knocked into a branch, respawned...), keeping gate timing
+  const replan = from => {
+    route = routeCells(L, from, tCell);
+    pts = route.map(q => cellCenter(L, q.c, q.r));
+    if (!forApple) pts.push({ x: L.goal.x, z: L.goal.z });
+    pathIdx = new Map(route.map((q, i) => [key(q.c, q.r), i]));
+    idx = Math.min(1, pts.length - 1);
+    committed = null;
+  };
   const cellOf = b => ({
     c: Math.max(0, Math.min(L.cols - 1, Math.floor((b.x + L.cols * BOARD.CELL / 2) / BOARD.CELL))),
     r: Math.max(0, Math.min(L.rows - 1, Math.floor((b.z + L.rows * BOARD.CELL / 2) / BOARD.CELL)))
@@ -74,14 +83,7 @@ function solve(n, board = 'neon', ball = 'plastic', maxSeconds = 2400, target = 
       while (idx < pts.length - 1 && Math.hypot(aimFor(idx).x - active.x, aimFor(idx).z - active.z) < 0.35) idx++;
       // Knocked off course? Re-acquire from the cell the ball is actually in
       const bc = cellOf(active), pi = pathIdx.get(key(bc.c, bc.r));
-      if (pi === undefined) {
-        const back = openNeighbours(L.cells, L.cols, L.rows, bc.c, bc.r)
-          .reduce((a, nb) => (toGoal.get(key(nb.c, nb.r)) < toGoal.get(key(a.c, a.r)) ? nb : a), bc);
-        const q = cellCenter(L, back.c, back.r);
-        steer(q.x, q.z);
-        t += dt;
-        continue;
-      }
+      if (pi === undefined) { replan(bc); continue; }
       if (pi !== idx && pi !== idx - 1 && !committed) idx = Math.min(pi + 1, pts.length - 1);
       const tgt = pts[idx];
       const gate = w.sliders.find(s => Math.hypot(s.x - tgt.x, s.z - tgt.z) < 0.1);
@@ -112,12 +114,19 @@ function solve(n, board = 'neon', ball = 'plastic', maxSeconds = 2400, target = 
   return { ok: false, t, falls: w.falls, idx, of: pts.length, ball: active.id, at: [active.x.toFixed(2), active.z.toFixed(2), active.state], cap: w.captured };
 }
 
-test('autopilot clears levels 1-30 with bounded falls', () => {
+// Timer fairness: the limit must leave an expert room to bring THREE balls home. The bot is a careful
+// single-ball benchmark (no falls, waits at gates); requiring limit >= 2.3x its per-ball time keeps
+// late levels winnable even though balls split up at every gate.
+const MIN_TIMER_RATIO = 2.3;
+
+test('autopilot clears levels 1-40, and every timer is fair', () => {
   const report = [];
-  for (let n = 1; n <= 30; n++) {
+  for (let n = 1; n <= 40; n++) {
     const r = solve(n);
-    report.push(`L${n}:${r.ok ? `${r.t.toFixed(0)}s/${r.falls}f` : `FAIL@${r.idx}/${r.of}`}`);
+    const limit = buildLevel(n).timeLimit, perBall = r.t / 3;
+    report.push(`L${n}:${r.ok ? `${perBall.toFixed(0)}s/ball` : `FAIL@${r.idx}/${r.of}`}${limit ? ` limit${limit}(${(limit / perBall).toFixed(1)}x)` : ''}`);
     assert.ok(r.ok, `level ${n} not solved: ${JSON.stringify(r)}`);
+    if (limit) assert.ok(limit >= MIN_TIMER_RATIO * perBall, `level ${n} timer too tight: ${limit}s vs ${perBall.toFixed(0)}s per careful ball`);
   }
   console.log(report.join(' '));
 });
