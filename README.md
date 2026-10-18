@@ -69,7 +69,7 @@ On phones, starting a level goes full-screen and locks the screen rotation, so t
 - **Side-by-side 3D** (Parallel, Cross-eye, Smart Glasses) always locks **landscape**. 2D and Anaglyph lock whatever orientation you're holding.
 - **Changing 3D mode mid-game** from the pause settings re-locks to match.
 - **It unlocks back at the menu.**
-- **Android** allows this in full-screen or the installed app. **iPhone Safari has no lock API.**
+- **Android Chrome** grants the lock only while the page is **full-screen**, even in the installed app, so the game always enters full-screen first and retries once if the first lock is refused. The manifest also has `display_override: ["fullscreen"]`, so the installed app launches full-screen (Android can take a while to refresh an existing install; reinstalling applies it at once). **iPhone Safari has no lock API.**
 - **If the lock is refused**, nothing fails silently: the 3D countdown says *"Turn on your phone's rotation lock"*, and the pause panel shows the lock status (`🔒 Rotation locked: landscape` or the reason it wasn't).
 
 ## Run locally

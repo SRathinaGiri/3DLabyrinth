@@ -188,13 +188,17 @@ class GameApp {
     if (!matchMedia('(pointer: coarse)').matches) { this.orientStatus = ''; return; } // desktop: nothing to lock
     if (!so || typeof so.lock !== 'function') { this.orientFailed('not supported by this browser'); return; }
     const want = this.renderer.isDualView ? 'landscape' : (so.type && so.type.startsWith('landscape') ? 'landscape' : 'portrait');
-    const lock = () => so.lock(want).then(
-      () => { this.orientStatus = `🔒 Rotation locked: ${want}`; this.orientProblem = false; },
-      err => this.orientFailed((err && err.name) || 'refused'));
-    const installed = matchMedia('(display-mode: standalone)').matches;
-    if (!installed && document.fullscreenEnabled && !document.fullscreenElement) {
-      document.documentElement.requestFullscreen({ navigationUI: 'hide' }).then(lock, lock);
-    } else lock();
+    const ok = () => { this.orientStatus = `🔒 Rotation locked: ${want}`; this.orientProblem = false; };
+    // Chrome on Android grants the lock only while the page is FULL-SCREEN, installed app included
+    // (standalone is not enough). If it is refused right after entering full-screen, retry once when
+    // the fullscreenchange has settled.
+    const lock = (retry) => so.lock(want).then(ok, err => {
+      if (retry && document.fullscreenElement) setTimeout(() => lock(false), 300);
+      else this.orientFailed((err && err.name) || 'refused');
+    });
+    if (document.fullscreenEnabled && !document.fullscreenElement) {
+      document.documentElement.requestFullscreen({ navigationUI: 'hide' }).then(() => lock(true), () => lock(false));
+    } else lock(true);
   }
 
   orientFailed(why) {
