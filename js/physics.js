@@ -5,6 +5,7 @@
    ========================================================================== */
 
 import { BOARD, PHYS, BALL_COUNT, surfacePhysics } from './config.js';
+import { hopTarget } from './maze.js';
 
 const R = BOARD.BALL_R;
 // Triangle formation inside the start cell
@@ -28,6 +29,8 @@ export class PhysicsWorld {
     }
     this.captured = 0;
     this.falls = 0;
+    this.saves = 0;
+    this.onFallSave = null; // (ball, hole) => true to spend a life and hop the ball past the hole
     this.updateSliders(0);
   }
 
@@ -93,6 +96,13 @@ export class PhysicsWorld {
       const dx = hole.x - b.x, dz = hole.z - b.z, d = Math.hypot(dx, dz);
       if (d < hole.r_) {
         if (d < hole.r_ - R * PHYS.FALL_MARGIN) {
+          if (this.onFallSave && this.onFallSave(b, hole)) {
+            const to = hopTarget(this.level, hole);
+            Object.assign(b, { state: 'hop', hx0: b.x, hz0: b.z, hx1: to.x, hz1: to.z, timer: 0, vx: 0, vz: 0 });
+            this.saves++;
+            if (events.save) events.save(b);
+            return;
+          }
           b.state = 'falling'; b.fx = hole.x; b.fz = hole.z; b.vy = 0;
           this.falls++;
           if (events.fall) events.fall(b);
@@ -123,7 +133,14 @@ export class PhysicsWorld {
   }
 
   animateOffBoard(b, h, events) {
-    if (b.state === 'falling') {
+    if (b.state === 'hop') {
+      b.timer = Math.min(1, b.timer + h / PHYS.HOP_TIME);
+      const p = b.timer, e = p * p * (3 - 2 * p); // smoothstep glide
+      b.x = b.hx0 + (b.hx1 - b.hx0) * e;
+      b.z = b.hz0 + (b.hz1 - b.hz0) * e;
+      b.y = R + Math.sin(Math.PI * p) * PHYS.HOP_HEIGHT;
+      if (p >= 1) { b.state = 'roll'; b.y = R; }
+    } else if (b.state === 'falling') {
       b.vy -= 30 * h; b.y += b.vy * h;
       b.x += (b.fx - b.x) * Math.min(1, 10 * h);
       b.z += (b.fz - b.z) * Math.min(1, 10 * h);

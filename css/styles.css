@@ -200,3 +200,5 @@ kbd { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2
 .look-stats .meter { color: var(--amber); letter-spacing: 2px; font-size: 0.8rem; }
 .look-stats .meter .off { color: rgba(148,163,184,0.35); }
 .look-stats .desc { grid-column: 1 / -1; color: var(--muted); line-height: 1.5; }
+
+.lives-info { color: #ff7a9a; font-weight: 700; font-size: 0.9rem; }

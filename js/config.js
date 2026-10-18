@@ -4,7 +4,7 @@
    Pure module (no THREE / DOM) so it can be unit-tested in Node.
    ========================================================================== */
 
-export const VERSION = '1.1.0';
+export const VERSION = '1.2.0';
 
 // Board geometry (world units; one maze cell = CELL x CELL)
 export const BOARD = {
@@ -35,8 +35,14 @@ export const PHYS = {
   TILT_RATE: 7,          // how fast the board follows the input (1/s)
   HOLE_PULL: 28,         // rim attraction toward a hole centre
   FALL_MARGIN: 0.3,      // ball falls when centre is inside (HOLE_R - BALL_R * FALL_MARGIN)
-  RESPAWN_DELAY: 0.7     // seconds a fallen ball waits before reappearing at start
+  RESPAWN_DELAY: 0.7,    // seconds a fallen ball waits before reappearing at start
+  HOP_TIME: 0.6,         // a life-saved ball hops over the hole in this many seconds
+  HOP_HEIGHT: 1.6
 };
+
+// Shared life pool. A life saves a falling ball (it hops past the hole) or, at
+// time-out, rescues each ball still out. Earned only on the FIRST clear of a level.
+export const LIVES = { START: 0, PER_NEW_LEVEL: 1, MAX: 99 };
 
 /*
  * Board surfaces x ball types. Real physics note: on a frictionless incline a

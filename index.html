@@ -9,7 +9,7 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg">
   <link rel="apple-touch-icon" href="./assets/favicon.svg">
-  <link rel="stylesheet" href="./css/styles.css?v=1.1.0">
+  <link rel="stylesheet" href="./css/styles.css?v=1.2.0">
   <!-- Three.js r128, bundled locally so the PWA works fully offline -->
   <script src="./js/lib/three.min.js"></script>
 </head>
@@ -25,7 +25,7 @@
           <circle cx="6" cy="12" r="1.8" fill="#ffc93c" stroke="none"/>
         </svg>
         <span>3D Labyrinth</span>
-        <span class="version-badge">v1.1.0</span>
+        <span class="version-badge">v1.2.0</span>
       </div>
       <div class="header-controls">
         <button class="icon-btn vr-btn" id="webxrBtn" style="display:none" title="Enter immersive VR (Meta Quest browser)">🥽 VR</button>
@@ -40,6 +40,7 @@
         <p class="muted">Tilt the board and roll all <strong>three balls</strong> from the blue start ring into the
           <strong class="green">green goal</strong>. Dodge holes, time the sliding gates, beat the clock. Every level gets bigger and meaner.</p>
         <button class="action-btn" id="playBtn">▶ Play Level 1</button>
+        <div class="lives-info" id="livesInfo"></div>
         <h3 class="section-h">Levels</h3>
         <div class="level-grid" id="levelGrid"></div>
       </section>
@@ -107,7 +108,7 @@
 
       <div class="modal-overlay hidden" id="pauseScreen">
         <div class="modal-card">
-          <h2 class="title">⏸ Paused</h2>
+          <h2 class="title">⚙ 3D &amp; Controls</h2>
           <div class="mode-selector">
             <button class="mode-btn" data-mode="2d">2D</button>
             <button class="mode-btn" data-mode="parallel">Parallel</button>
@@ -132,36 +133,12 @@
           </div>
           <button class="icon-btn swap-btn">🔄 Swap Eyes</button>
           <div class="btn-row">
+            <button class="action-btn ghost" id="settingsBackBtn">◀ Back</button>
             <button class="action-btn" id="resumeBtn">▶ Resume</button>
-            <button class="action-btn ghost" id="pauseRestartBtn">↻ Restart</button>
-            <button class="action-btn ghost" id="pauseMenuBtn">☰ Menu</button>
           </div>
         </div>
       </div>
 
-      <div class="modal-overlay hidden" id="completeScreen">
-        <div class="modal-card">
-          <h2 class="title green" id="completeTitle">Level cleared!</h2>
-          <div class="stars" id="completeStars">★★★</div>
-          <div class="muted" id="completeStats"></div>
-          <div class="btn-row">
-            <button class="action-btn" id="nextBtn">Next Level ▶</button>
-            <button class="action-btn ghost" id="replayBtn">↻ Replay</button>
-            <button class="action-btn ghost" id="completeMenuBtn">☰ Menu</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="modal-overlay hidden" id="failedScreen">
-        <div class="modal-card">
-          <h2 class="title red">Time's up</h2>
-          <div class="muted" id="failedStats"></div>
-          <div class="btn-row">
-            <button class="action-btn" id="retryBtn">↻ Try again</button>
-            <button class="action-btn ghost" id="failedMenuBtn">☰ Menu</button>
-          </div>
-        </div>
-      </div>
     </div>
 
     <div class="game-toolbar" id="gameBottomToolbar">
@@ -186,7 +163,8 @@
       <ul>
         <li>Get all <strong>3 balls</strong> into the <strong class="green">green goal</strong>. A ball in a <strong class="red">red-rimmed hole</strong> drops out and restarts at the blue ring.</li>
         <li>Levels 1–2 are untimed. From level 3 there is a clock; later levels add offset holes, corner holes on turns and orange <strong>sliding gates</strong> you must time.</li>
-        <li>★★★ = no falls and fast · ★★ = up to 2 falls · ★ = cleared.</li>
+        <li><strong>❤ Lives</strong> (shared by all balls): +1 the first time you clear a level. A ball that drops into a hole spends a life and hops over it instead of restarting. If the clock runs out and you have a life for every ball still out, they are spent and the level is <em>rescued</em>.</li>
+        <li>★★★ = no falls, no lives used, fast · ★★ = up to 2 falls/saves · ★ = cleared or rescued.</li>
         <li><strong>Gyro</strong>: hold the phone however is comfortable — the countdown levels it. Tap <em>🎯 Re-level</em> any time. iPhone asks for motion permission on first play.</li>
         <li><strong>Gesture</strong>: touch and drag anywhere on the board — the drag distance is the tilt.</li>
       </ul>
@@ -209,6 +187,6 @@
     <button id="closeUpdateBtn" class="update-close" title="Dismiss">✖</button>
   </div>
 
-  <script type="module" src="./js/app.js?v=1.1.0"></script>
+  <script type="module" src="./js/app.js?v=1.2.0"></script>
 </body>
 </html>

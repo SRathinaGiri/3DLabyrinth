@@ -2,7 +2,7 @@
    3D LABYRINTH - MAIN APPLICATION (game loop, camera, level lifecycle)
    ========================================================================== */
 
-import { VERSION, BOARD, PHYS, DEFAULT_LOOK, surfacePhysics, timePace } from './config.js';
+import { VERSION, BOARD, PHYS, LIVES, DEFAULT_LOOK, surfacePhysics, timePace } from './config.js';
 import { buildLevel } from './maze.js';
 import { PhysicsWorld } from './physics.js';
 import { StereoRenderEngine } from './renderer.js';
@@ -22,9 +22,13 @@ const COUNTDOWN = 3;
 function loadProgress() {
   try {
     const p = JSON.parse(localStorage.getItem(PROGRESS_KEY) || 'null');
-    if (p && p.unlocked >= 1) return { unlocked: p.unlocked | 0, best: p.best || {} };
+    if (p && p.unlocked >= 1) {
+      // Saves from before lives existed get credit for the levels already cleared
+      const lives = Number.isInteger(p.lives) ? p.lives : Math.min(LIVES.MAX, LIVES.START + (p.unlocked - 1) * LIVES.PER_NEW_LEVEL);
+      return { unlocked: p.unlocked | 0, best: p.best || {}, lives };
+    }
   } catch (_) { /* corrupt or blocked storage: start fresh */ }
-  return { unlocked: 1, best: {} };
+  return { unlocked: 1, best: {}, lives: LIVES.START };
 }
 
 class GameApp {
@@ -55,6 +59,7 @@ class GameApp {
     this.ui = new UIManager(this);
     this.controls.bindDragJoystick(document.getElementById('viewportFrame'), document.getElementById('joystick'));
     this.controls.onAction = a => this.handleAction(a);
+    this.bindDialogPointer();
 
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden' && (this.state === 'PLAYING' || this.state === 'COUNTDOWN')) this.togglePause();
@@ -76,6 +81,8 @@ class GameApp {
     const surf = surfacePhysics(this.look.board, this.look.ball);
     this.level.timeLimit = Math.round(this.level.timeLimit * timePace(surf));
     this.physics = new PhysicsWorld(this.level, surf);
+    // A falling ball spends a life (if any) and hops past the hole instead of restarting
+    this.physics.onFallSave = () => this.state === 'PLAYING' && this.spendLives(1);
     this.board.build(this.level, this.look);
     this.audio.setMaterials(this.look.board, this.look.ball);
     this.tilt.x = this.tilt.z = 0;
@@ -91,6 +98,7 @@ class GameApp {
       this.controls.enableGyro().then(on => this.ui.syncGyro(on));
     }
     clearInterval(this.countdownTimer);
+    this.closeDialog();
     this.loadLevel(n);
     this.ui.showGamePage();
     this.renderer.handleResize();
@@ -127,9 +135,14 @@ class GameApp {
       this.controls.resetManual();
       this.audio.stopMusic();
       this.controls.releaseWakeLock();
-      this.ui.showModal('pauseScreen');
+      this.openDialog({
+        title: 'PAUSED', color: '#00f0ff',
+        lines: [`Level ${this.level.n} · ❤ ${this.progress.lives} ${this.progress.lives === 1 ? 'life' : 'lives'}`],
+        buttons: [{ id: 'resume', label: '▶ Resume' }, { id: 'restart', label: '↻ Restart' }, { id: 'settings', label: '⚙ 3D' }, { id: 'menu', label: '☰ Menu' }]
+      });
     } else if (this.state === 'PAUSED') {
       this.state = this.pausedFrom || 'PLAYING';
+      this.closeDialog();
       this.ui.hideModals();
       this.audio.startMusic();
       this.controls.requestWakeLock();
@@ -139,33 +152,58 @@ class GameApp {
   stopGame() {
     clearInterval(this.countdownTimer);
     this.state = 'MENU';
+    this.closeDialog();
     this.audio.stopMusic();
     this.controls.releaseWakeLock();
     this.hud.hideBanner();
     this.ui.showMenuPage();
   }
 
-  levelComplete() {
+  saveProgress() {
+    try { localStorage.setItem(PROGRESS_KEY, JSON.stringify(this.progress)); } catch (_) { /* private mode */ }
+  }
+
+  /** Spend n lives from the shared pool; false (and nothing spent) if there are not enough. */
+  spendLives(n) {
+    if (this.progress.lives < n) return false;
+    this.progress.lives -= n;
+    this.saveProgress();
+    return true;
+  }
+
+  /** rescuedWith = number of lives spent at time-out to bring the remaining balls home. */
+  levelComplete(rescuedWith = 0) {
     this.state = 'COMPLETE';
-    const n = this.level.n, t = this.elapsed, falls = this.physics.falls, tl = this.level.timeLimit;
-    let stars = 1;
-    if (falls <= 2) stars = 2;
-    if (falls === 0 && (!tl || t <= tl * 0.66)) stars = 3;
+    const n = this.level.n, t = this.elapsed, falls = this.physics.falls, saves = this.physics.saves, tl = this.level.timeLimit;
+    // Stars: lives keep you playing but cap the rating
+    let stars = falls + saves <= 2 ? 2 : 1;
+    if (falls === 0 && saves === 0 && (!tl || t <= tl * 0.66)) stars = 3;
+    if (rescuedWith) stars = 1;
     const prev = this.progress.best[n];
-    const isBest = !prev || t < prev.time;
+    const isBest = !rescuedWith && (!prev || t < prev.time);
     this.progress.best[n] = {
       time: prev ? Math.min(prev.time, t) : t,
       stars: Math.max(stars, prev ? prev.stars : 0)
     };
+    const firstClear = n >= this.progress.unlocked;
+    if (firstClear) this.progress.lives = Math.min(LIVES.MAX, this.progress.lives + LIVES.PER_NEW_LEVEL);
     this.progress.unlocked = Math.max(this.progress.unlocked, n + 1);
-    try { localStorage.setItem(PROGRESS_KEY, JSON.stringify(this.progress)); } catch (_) { /* private mode */ }
+    this.saveProgress();
     this.audio.playLevelComplete();
     this.vibrate([40, 60, 40]);
     this.controls.releaseWakeLock();
-    this.hud.showBanner('CLEAR!', '★'.repeat(stars) + '☆'.repeat(3 - stars), '#34ff9a');
-    setTimeout(() => {
-      if (this.state === 'COMPLETE') this.ui.showComplete({ n, time: t, falls, stars, isBest });
-    }, 900);
+
+    const mm = Math.floor(t / 60), ss = String(Math.floor(t % 60)).padStart(2, '0');
+    const lines = [`Time ${mm}:${ss}${isBest ? ' (best!)' : ''} · Falls ${falls}${saves ? ` · Saves ${saves}` : ''}`];
+    if (rescuedWith) lines.unshift(`Rescued with ${rescuedWith} ❤`);
+    lines.push(`❤ ${this.progress.lives} ${this.progress.lives === 1 ? 'life' : 'lives'}${firstClear ? `  (+${LIVES.PER_NEW_LEVEL} new level)` : ''}`);
+    this.openDialog({
+      title: rescuedWith ? `LEVEL ${n} RESCUED` : `LEVEL ${n} CLEAR!`,
+      color: rescuedWith ? '#ffc93c' : '#34ff9a',
+      big: '★'.repeat(stars) + '☆'.repeat(3 - stars),
+      lines,
+      buttons: [{ id: 'next', label: 'Next ▶' }, { id: 'replay', label: '↻ Replay' }, { id: 'menu', label: '☰ Menu' }]
+    });
   }
 
   levelFailed() {
@@ -173,25 +211,77 @@ class GameApp {
     this.audio.playFail();
     this.vibrate(200);
     this.controls.releaseWakeLock();
-    this.hud.showBanner("TIME'S UP", `${this.physics.captured}/3 balls home`, '#ff3b5c');
-    setTimeout(() => {
-      if (this.state === 'FAILED') this.ui.showFailed({ n: this.level.n, captured: this.physics.captured });
-    }, 900);
+    const out = this.physics.balls.length - this.physics.captured;
+    this.openDialog({
+      title: "TIME'S UP", color: '#ff3b5c',
+      lines: [`${this.physics.captured}/3 balls home`, `Rescue needs ${out} ❤ · you have ${this.progress.lives}`],
+      buttons: [{ id: 'retry', label: '↻ Try again' }, { id: 'menu', label: '☰ Menu' }]
+    });
+  }
+
+  /* ------------------------------ 3D dialogs ------------------------------ */
+  openDialog(spec) {
+    this.hud.showDialog(spec);
+    this.controls.menuMode = true;
+    this.controls.resetManual();
+  }
+
+  closeDialog() {
+    this.hud.hideDialog();
+    this.controls.menuMode = false;
+  }
+
+  /** Taps on the canvas while a dialog is open: map to eye-local NDC (works in both SBS halves). */
+  bindDialogPointer() {
+    const canvas = this.renderer.renderer.domElement;
+    const toNdc = e => {
+      const r = canvas.getBoundingClientRect();
+      let u = (e.clientX - r.left) / r.width;
+      const v = (e.clientY - r.top) / r.height;
+      if (this.renderer.isDualView) u = (u % 0.5) * 2; // either eye's half maps to the same panel
+      return [u * 2 - 1, 1 - v * 2];
+    };
+    this.controls.blockDrag = e => {
+      if (!this.hud.dialogVisible) return false;
+      const i = this.hud.hitIndex(...toNdc(e));
+      if (i >= 0) { this.hud.setFocus(i); this.dialogAction(this.hud.focusedAction()); }
+      return true;
+    };
+    canvas.addEventListener('pointermove', e => {
+      if (e.pointerType === 'mouse' && this.hud.dialogVisible) this.hud.setFocus(this.hud.hitIndex(...toNdc(e)));
+    });
+  }
+
+  dialogAction(id) {
+    this.audio.ensureContext();
+    switch (id) {
+      case 'resume': this.togglePause(); break;
+      case 'restart': case 'retry': case 'replay': this.startLevel(this.level.n); break;
+      case 'next': this.startLevel(this.level.n + 1); break;
+      case 'menu': this.stopGame(); break;
+      case 'settings': this.ui.showModal('pauseScreen'); break; // sliders need a real 2D form
+    }
   }
 
   handleAction(a) {
     const inGame = this.state !== 'MENU';
+    const settingsOpen = !document.getElementById('pauseScreen').classList.contains('hidden');
+    if (this.hud.dialogVisible && !settingsOpen) {
+      if (a === 'focusPrev') return this.hud.moveFocus(-1);
+      if (a === 'focusNext') return this.hud.moveFocus(1);
+      if (a === 'confirm') return this.dialogAction(this.hud.focusedAction());
+    }
     switch (a) {
-      case 'pause': if (inGame) this.togglePause(); break;
+      case 'pause':
+        if (settingsOpen) this.ui.hideModals();
+        else if (inGame && this.state !== 'COMPLETE' && this.state !== 'FAILED') this.togglePause();
+        break;
       case 'restart': if (inGame) { this.ui.hideModals(); this.startLevel(this.level.n); } break;
       case 'calibrate': this.calibrate(); break;
       case 'view': this.ui.setViewMode(this.cycleViewMode()); break;
       case 'mute': this.ui.toggleMute(); break;
       case 'confirm':
         if (this.state === 'MENU') this.startLevel(this.progress.unlocked);
-        else if (this.state === 'COMPLETE') { this.ui.hideModals(); this.startLevel(this.level.n + 1); }
-        else if (this.state === 'FAILED') { this.ui.hideModals(); this.startLevel(this.level.n); }
-        else if (this.state === 'PAUSED') this.togglePause();
         break;
     }
   }
@@ -211,7 +301,7 @@ class GameApp {
 
   /* ------------------------------ Per-frame ------------------------------ */
   updatePlay(dt) {
-    const input = this.controls.update(dt);
+    const input = this.controls.tilt;
     const active = this.state === 'PLAYING';
     const maxTilt = this.level.params.maxTiltDeg * DEG;
     const tx = active ? input.x * maxTilt : 0, tz = active ? input.y * maxTilt : 0;
@@ -225,6 +315,10 @@ class GameApp {
         wallHit: s => { this.audio.playClick(s); if (s > 5) this.vibrate(15); },
         ballHit: s => this.audio.playClick(s, true),
         fall: () => { this.audio.playFall(); this.vibrate(80); },
+        save: () => {
+          this.audio.playSave(); this.vibrate([30, 40, 30]);
+          this.hud.showBanner('❤ SAVED', `Hopped over the hole · ${this.progress.lives} left`, '#ff4f7a', 1.1);
+        },
         capture: b => { this.audio.playCapture(b.slot); this.vibrate(30); }
       });
       this.elapsed += dt;
@@ -234,7 +328,12 @@ class GameApp {
         if (left <= 10 && left !== this.lastTick && left > 0) { this.lastTick = left; this.audio.playTick(true); }
       }
       if (this.physics.allHome) this.levelComplete();
-      else if (tl && this.elapsed >= tl) this.levelFailed();
+      else if (tl && this.elapsed >= tl) {
+        // Time-out: one life per ball still out rescues the level, if the pool covers them all
+        const out = this.physics.balls.length - this.physics.captured;
+        if (this.spendLives(out)) this.levelComplete(out);
+        else this.levelFailed();
+      }
     } else if (this.state === 'COMPLETE' || this.state === 'FAILED') {
       this.physics.step(dt, 0, 0); // let captured balls settle into the goal
     }
@@ -246,6 +345,7 @@ class GameApp {
       time: this.elapsed,
       timeLimit: this.level.timeLimit,
       falls: this.physics.falls,
+      lives: this.progress.lives,
       source: this.controls.source
     });
   }
@@ -310,10 +410,20 @@ class GameApp {
       this.xrConfirmHeld = pressed;
       this.hud.layout(1.4, 70, 1.2);
     }
+    this.controls.update(dt); // every frame, so gamepad/XR can drive dialogs while paused
+    if (this.hud.dialogVisible) this.pollDialogStick();
     if (this.state !== 'PAUSED') this.updatePlay(dt);
     this.hud.update(dt);
     this.updateCamera(dt);
     this.renderer.render(this.scene);
+  }
+
+  /** Gamepad / Quest thumbstick flicks move dialog focus (edge-triggered). */
+  pollDialogStick() {
+    const x = this.controls.source === 'pad' || this.controls.source === 'vr' ? this.controls.tilt.x : 0;
+    const dir = x > 0.6 ? 1 : x < -0.6 ? -1 : 0;
+    if (dir && dir !== this.stickDir) this.hud.moveFocus(dir);
+    this.stickDir = dir;
   }
 
   /* ------------------------------ WebXR ------------------------------ */
@@ -328,6 +438,7 @@ class GameApp {
           const session = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor'] });
           this.renderer.renderer.xr.setReferenceSpaceType('local-floor');
           await this.renderer.renderer.xr.setSession(session);
+          session.addEventListener('select', () => this.handleAction('confirm')); // trigger = OK
           if (this.state === 'MENU') this.startLevel(this.progress.unlocked);
           const fit = () => {
             const { W, H } = this.board.extent;

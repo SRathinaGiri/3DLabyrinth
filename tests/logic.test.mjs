@@ -1,7 +1,7 @@
 // Run: node --test tests/
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildLevel, openNeighbours, cellCenter } from '../js/maze.js';
+import { buildLevel, openNeighbours, cellCenter, hopTarget } from '../js/maze.js';
 import { PhysicsWorld, collideBox } from '../js/physics.js';
 import { BOARD, CORRIDOR_HALF, PHYS, levelParams } from '../js/config.js';
 
@@ -128,4 +128,34 @@ test('collideBox pushes a ball out and reflects velocity', () => {
   assert.ok(hit > 0);
   assert.ok(b.x >= BOARD.BALL_R - 1e-9);
   assert.ok(b.vx > 0);
+});
+
+test('a life-saved ball hops past the hole to safe ground nearer the goal', () => {
+  const fallR = BOARD.HOLE_R - BOARD.BALL_R * PHYS.FALL_MARGIN;
+  for (const n of [3, 6, 9, 14, 22, 35]) {
+    const L = buildLevel(n);
+    for (const h of L.holes) {
+      const t = hopTarget(L, h);
+      for (const o of L.holes) assert.ok(Math.hypot(t.x - o.x, t.z - o.z) > fallR + 0.05, `level ${n} hop lands in a hole`);
+      assert.ok(Math.hypot(t.x - L.goal.x, t.z - L.goal.z) > L.goal.r_, `level ${n} hop lands in the goal`);
+      for (const s of L.sliders) assert.ok(Math.hypot(t.x - s.x, t.z - s.z) > 0.5, `level ${n} hop lands on a gate`);
+    }
+  }
+  const L = buildLevel(9);
+  const w = new PhysicsWorld(L);
+  let lives = 1, saved = 0;
+  w.onFallSave = () => (lives > 0 ? (lives--, true) : false);
+  const hole = L.holes.find(h => h.kind === 'path') || L.holes[0];
+  const b = w.balls[0];
+  Object.assign(b, { x: hole.x, z: hole.z, vx: 0, vz: 0 });
+  for (let f = 0; f < 60; f++) w.step(1 / 60, 0, 0, { save: () => saved++ });
+  assert.equal(saved, 1);
+  assert.equal(w.falls, 0);
+  assert.equal(b.state, 'roll');
+  const target = hopTarget(L, hole);
+  assert.ok(Math.hypot(b.x - target.x, b.z - target.z) < 0.6, 'ball did not land at hop target');
+  // Out of lives: the next fall is a real fall
+  Object.assign(b, { x: hole.x, z: hole.z, vx: 0, vz: 0 });
+  w.step(1 / 60, 0, 0);
+  assert.equal(w.falls, 1);
 });

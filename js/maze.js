@@ -221,6 +221,7 @@ export function buildLevel(n) {
     placed++;
   }
 
+  level.toGoal = bfs(cells, cols, rows, finish).dist; // cell steps to the goal, for life-saved hops
   level.walls = computeWalls(cells, cols, rows);
   level.startPos = cellCenter(level, start.c, start.r);
   level.goal = { ...cellCenter(level, finish.c, finish.r), r_: BOARD.GOAL_R };
@@ -228,4 +229,24 @@ export function buildLevel(n) {
     ? Math.round((path.length * TIME.PER_CELL + TIME.BASE + level.sliders.length * TIME.PER_SLIDER) * p.timeFactor)
     : 0;
   return level;
+}
+
+/**
+ * Where a life-saved ball lands after hopping out of `hole`: the first safe cell
+ * on the shortest route from the hole's cell towards the goal (never the goal
+ * itself, never a gate cell or a cell whose centre is a hole).
+ */
+export function hopTarget(level, hole) {
+  const { cols, rows, cells, toGoal, finish } = level;
+  const key = (c, r) => r * cols + c;
+  const unsafe = (c, r) => level.sliders.some(s => s.c === c && s.r === r) ||
+    level.holes.some(h => h.c === c && h.r === r && h.kind === 'side');
+  let c = hole.c, r = hole.r;
+  for (let guard = 0; guard < cols * rows; guard++) {
+    const next = openNeighbours(cells, cols, rows, c, r).find(nb => toGoal[key(nb.c, nb.r)] === toGoal[key(c, r)] - 1);
+    if (!next || (next.c === finish.c && next.r === finish.r)) break;
+    c = next.c; r = next.r;
+    if (!unsafe(c, r)) return cellCenter(level, c, r); // centre is safe even in path/turn-hole cells
+  }
+  return hole.kind !== 'side' ? cellCenter(level, hole.c, hole.r) : { ...level.startPos };
 }

@@ -30,6 +30,13 @@ Pick them in the menu. Each one changes both the look and the physics.
 
 Board and ball values multiply together (grip → rolling resistance, bounce → wall restitution, capped at 0.92). Physics note: on a real incline a heavy ball does not accelerate faster, because a = 5/7·g·sinθ regardless of mass. Steel feels fast because friction and bumps barely slow it, so its accel boost is a gameplay choice. Slow pairings get up to +40% on the timer (`timePace`). Impact sounds also change: steel pings, rubber thuds, wood dulls the knock, and glass/marble make it ring.
 
+## Lives & 3D messages
+- **❤ Lives** are a pool shared by all three balls. You get +1 the first time you clear a level; replays don't earn lives.
+- **Ball falls into a hole:** if you have a life, one is spent and the ball **hops over the hole** to the next safe cell towards the goal (never into the goal, a gate or another hole). With no lives it restarts at the blue ring as before.
+- **Time runs out:** if your lives cover every ball still out (e.g. 2 balls out, 5 lives), those lives are spent and the level counts as **rescued**, so you move on.
+- **Stars:** lives keep you playing but cap the rating. A life-saved fall counts like a fall (max ★★), and a rescue gives ★.
+- **3D messages:** Level clear, Rescued, Time's up and Paused are panels **inside the stereo scene** on the zero-parallax plane, so they work in SBS, anaglyph, HSBS glasses and VR. You can tap a button in either eye's half, or use ←/→ + Enter, a gamepad stick + A, or the Quest thumbstick + trigger/A. Only the slider form (⚙ 3D on the pause panel) is a normal 2D screen.
+
 ## Difficulty curve (`js/config.js`)
 | Level | What gets added |
 |---|---|

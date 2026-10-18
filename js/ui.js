@@ -2,7 +2,7 @@
    3D LABYRINTH - UI MANAGER (menus, modals, settings persistence)
    ========================================================================== */
 
-import { BOARD_SURFACES, BALL_TYPES, PHYS, surfacePhysics, timePace } from './config.js';
+import { BOARD_SURFACES, BALL_TYPES, PHYS, LIVES, surfacePhysics, timePace } from './config.js';
 
 const SETTINGS_KEY = '3d_labyrinth_settings';
 const VIEW_LABEL = { AUTO: '🎥 View: Auto', OVERVIEW: '🗺️ View: Whole board', FOLLOW: '🎯 View: Follow balls' };
@@ -17,7 +17,7 @@ function fmtTime(t) {
 export class UIManager {
   constructor(app) {
     this.app = app;
-    this.modals = ['pauseScreen', 'completeScreen', 'failedScreen'];
+    this.modals = ['pauseScreen']; // only the settings sheet; game messages are 3D panels
     this.bindButtons();
     this.bindStereo();
     this.bindControlSettings();
@@ -38,16 +38,10 @@ export class UIManager {
     this.on('gameRestartBtn', () => a.handleAction('restart'));
     this.on('gameCalibrateBtn', () => a.calibrate());
     this.on('resumeBtn', () => a.togglePause());
-    this.on('pauseRestartBtn', () => a.handleAction('restart'));
-    this.on('pauseMenuBtn', () => a.stopGame());
-    this.on('nextBtn', () => { this.hideModals(); a.startLevel(a.level.n + 1); });
-    this.on('replayBtn', () => { this.hideModals(); a.startLevel(a.level.n); });
-    this.on('completeMenuBtn', () => a.stopGame());
-    this.on('retryBtn', () => { this.hideModals(); a.startLevel(a.level.n); });
-    this.on('failedMenuBtn', () => a.stopGame());
+    this.on('settingsBackBtn', () => this.hideModals()); // back to the 3D pause panel
     this.on('resetProgressBtn', () => {
       if (!confirm('Reset all level progress and best times?')) return;
-      a.progress = { unlocked: 1, best: {} };
+      a.progress = { unlocked: 1, best: {}, lives: LIVES.START };
       try { localStorage.removeItem('3d_labyrinth_progress'); } catch (_) { /* storage blocked */ }
       this.renderLevelGrid();
     });
@@ -194,6 +188,7 @@ export class UIManager {
     const grid = $('levelGrid');
     const p = this.app.progress;
     if ($('playBtn')) $('playBtn').textContent = p.unlocked > 1 ? `▶ Continue · Level ${p.unlocked}` : '▶ Play Level 1';
+    if ($('livesInfo')) $('livesInfo').textContent = `❤ ${p.lives} ${p.lives === 1 ? 'life' : 'lives'} · +1 for each new level cleared`;
     if (!grid) return;
     grid.innerHTML = '';
     for (let n = 1; n <= p.unlocked; n++) {
@@ -222,20 +217,6 @@ export class UIManager {
 
   showModal(id) { this.hideModals(); $(id).classList.remove('hidden'); }
   hideModals() { this.modals.forEach(id => $(id) && $(id).classList.add('hidden')); }
-
-  showComplete({ n, time, falls, stars, isBest }) {
-    $('completeTitle').textContent = `Level ${n} cleared!`;
-    $('completeStars').textContent = '★'.repeat(stars) + '☆'.repeat(3 - stars);
-    $('completeStats').textContent = `Time ${fmtTime(time)}${isBest ? ' (best!)' : ''} · Falls ${falls}`;
-    this.showModal('completeScreen');
-    setTimeout(() => $('nextBtn') && $('nextBtn').focus(), 50);
-  }
-
-  showFailed({ n, captured }) {
-    $('failedStats').textContent = `Level ${n} · ${captured}/3 balls reached the goal`;
-    this.showModal('failedScreen');
-    setTimeout(() => $('retryBtn') && $('retryBtn').focus(), 50);
-  }
 
   showUpdatePrompt(worker) {
     const banner = $('updateBanner');

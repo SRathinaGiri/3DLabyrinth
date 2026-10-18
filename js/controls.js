@@ -37,7 +37,10 @@ export class ControlsHandler {
     this.wakeLock = null;
     this.wakeLockRequested = false;
 
-    this.onAction = null;        // (name) => void : 'pause','restart','calibrate','view','mute','confirm'
+    this.onAction = null;        // (name) => void : 'pause','restart','calibrate','view','mute','confirm','focusPrev','focusNext'
+    this.menuMode = false;       // a 3D dialog is open: arrows move focus instead of tilting
+    this.blockDrag = null;       // (pointerEvent) => true when the app consumed the press (dialog tap)
+    this.padConfirmHeld = false;
     this.handleOrientation = this.handleOrientation.bind(this);
     this.initKeyboard();
     document.addEventListener('visibilitychange', () => {
@@ -140,7 +143,11 @@ export class ControlsHandler {
     const actions = { KeyP: 'pause', Escape: 'pause', KeyR: 'restart', KeyC: 'calibrate', KeyV: 'view', KeyM: 'mute', Space: 'confirm', Enter: 'confirm' };
     window.addEventListener('keydown', e => {
       if (e.target && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName) && !map[e.code]) return;
-      if (map[e.code]) { e.preventDefault(); this.keys[map[e.code]] = true; }
+      if (map[e.code] && this.menuMode) {
+        e.preventDefault();
+        const prev = map[e.code] === 'left' || map[e.code] === 'up';
+        if (this.onAction) this.onAction(prev ? 'focusPrev' : 'focusNext');
+      } else if (map[e.code]) { e.preventDefault(); this.keys[map[e.code]] = true; }
       else if (actions[e.code] && !e.repeat) {
         if (e.code === 'Space' || e.code === 'Enter') {
           if (e.target && e.target.tagName === 'BUTTON') return; // let the focused button handle it
@@ -159,6 +166,7 @@ export class ControlsHandler {
     const ignore = e => e.target.closest && e.target.closest('button, input, .modal-card, .modal-overlay:not(.hidden)');
     surface.addEventListener('pointerdown', e => {
       if (this.drag || ignore(e)) return;
+      if (this.blockDrag && this.blockDrag(e)) { e.preventDefault(); return; }
       if (e.pointerType === 'mouse' && e.button !== 0) return;
       this.drag = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY };
       try { surface.setPointerCapture(e.pointerId); } catch (_) { /* pointer already gone; drag still works without capture */ }
@@ -200,6 +208,10 @@ export class ControlsHandler {
   pollGamepads() {
     this.padTilt.x = this.padTilt.y = 0;
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+    // A / Cross button acts like Enter (edge-triggered)
+    const confirm = [...pads].some(gp => gp && gp.buttons[0] && gp.buttons[0].pressed);
+    if (confirm && !this.padConfirmHeld && this.onAction) this.onAction('confirm');
+    this.padConfirmHeld = confirm;
     for (const gp of pads) {
       if (!gp || gp.axes.length < 2) continue;
       const x = gp.axes[0], y = gp.axes[1];

@@ -74,6 +74,13 @@ class SoundEngine {
     this.tone(620, 0.55, { type: 'sine', vol: 0.22, slideTo: 70 });
   }
 
+  /** Life spent: quick rising heartbeat chirp */
+  playSave() {
+    if (!this.ok()) return;
+    this.tone(330, 0.12, { type: 'triangle', vol: 0.18 });
+    this.tone(495, 0.25, { type: 'triangle', vol: 0.16, at: 0.1, slideTo: 990 });
+  }
+
   playCapture(index) {
     if (!this.ok()) return;
     const base = [523.25, 659.25, 783.99][index % 3];
