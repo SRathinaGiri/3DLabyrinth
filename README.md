@@ -65,7 +65,12 @@ Stars: ★★★ for no falls and finishing within 66% of the time, ★★ for u
 - **What makes it installable:** the manifest has 192 px and 512 px PNG icons (normal + maskable, in `assets/`), `id`/`scope`/`start_url`, `display: standalone`, and a service worker with a fetch handler. `tests/version.test.mjs` checks the icons exist at the right sizes and are cached. It must be served over HTTPS (GitHub Pages is fine).
 
 ## Screen rotation lock
-On phones, starting a level goes full-screen and **locks the orientation you're holding** (portrait or landscape), so tilting for the gyro can't flip the screen. It unlocks back at the menu, so you can turn the phone sideways before choosing a 3D side-by-side mode. Android allows this in full-screen or the installed app. **iPhone Safari has no lock API**, so use the phone's own rotation lock there.
+On phones, starting a level goes full-screen and locks the screen rotation, so tilting for the gyro can't flip it:
+- **Side-by-side 3D** (Parallel, Cross-eye, Smart Glasses) always locks **landscape**. 2D and Anaglyph lock whatever orientation you're holding.
+- **Changing 3D mode mid-game** from the pause settings re-locks to match.
+- **It unlocks back at the menu.**
+- **Android** allows this in full-screen or the installed app. **iPhone Safari has no lock API.**
+- **If the lock is refused**, nothing fails silently: the 3D countdown says *"Turn on your phone's rotation lock"*, and the pause panel shows the lock status (`🔒 Rotation locked: landscape` or the reason it wasn't).
 
 ## Run locally
 ES modules need a web server:

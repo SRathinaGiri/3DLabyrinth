@@ -209,6 +209,8 @@ export class UIManager {
   setStereoMode(mode) {
     document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
     this.app.renderer.setMode(mode);
+    // Changed mid-game (a tap, so allowed): side-by-side modes need landscape, re-lock to match
+    if (!this.loading && this.app.state !== 'MENU') this.app.lockOrientation();
   }
 
   syncSwap() { document.querySelectorAll('.swap-btn').forEach(b => b.classList.toggle('active', this.app.renderer.swapEyes)); }

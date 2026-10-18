@@ -129,7 +129,9 @@ class GameApp {
       if (this.state !== 'COUNTDOWN') { clearInterval(this.countdownTimer); return; }
       if (c === 1) this.controls.calibrate(); // capture the current hand position as "level"
       if (c > 0) {
-        this.hud.showBanner(String(c), this.controls.gyroEnabled ? 'Hold phone steady · calibrating' : 'Get ready', '#ffc93c');
+        const sub = this.orientProblem ? "⚠ Turn on your phone's rotation lock"
+          : this.controls.gyroEnabled ? 'Hold phone steady · calibrating' : 'Get ready';
+        this.hud.showBanner(String(c), sub, '#ffc93c');
         this.audio.playTick(false);
         c--;
       } else {
@@ -149,7 +151,7 @@ class GameApp {
       this.controls.releaseWakeLock();
       this.openDialog({
         title: 'PAUSED', color: '#00f0ff',
-        lines: [`Level ${this.level.n} · ❤ ${this.progress.lives} ${this.progress.lives === 1 ? 'life' : 'lives'}`],
+        lines: [`Level ${this.level.n} · ❤ ${this.progress.lives} ${this.progress.lives === 1 ? 'life' : 'lives'}`, this.orientStatus].filter(Boolean),
         buttons: [{ id: 'resume', label: '▶ Resume' }, { id: 'restart', label: '↻ Restart' }, { id: 'settings', label: '⚙ 3D' }, { id: 'menu', label: '☰ Menu' }]
       });
     } else if (this.state === 'PAUSED') {
@@ -176,18 +178,29 @@ class GameApp {
 
   /**
    * Phones: tilting for the gyro must not flip the screen between portrait and landscape.
-   * Lock whatever orientation the player is holding when the level starts. Android allows the lock
-   * only in full-screen or in the installed app; iOS Safari has no lock API (use the phone's own lock).
+   * Side-by-side 3D (cardboard, smart glasses) is always viewed in landscape, so those modes lock
+   * landscape; 2D/anaglyph lock whatever the player is holding. Must run inside a tap (user gesture).
+   * Android allows it only in full-screen or the installed app; iOS Safari has no lock API at all,
+   * so a failure is reported (countdown + pause panel) instead of failing silently.
    */
   lockOrientation() {
     const so = screen.orientation;
-    if (!matchMedia('(pointer: coarse)').matches || !so || typeof so.lock !== 'function') return;
-    const type = so.type && so.type.startsWith('landscape') ? 'landscape' : 'portrait';
-    const lock = () => so.lock(type).catch(() => { /* not allowed here: nothing else to do */ });
+    if (!matchMedia('(pointer: coarse)').matches) { this.orientStatus = ''; return; } // desktop: nothing to lock
+    if (!so || typeof so.lock !== 'function') { this.orientFailed('not supported by this browser'); return; }
+    const want = this.renderer.isDualView ? 'landscape' : (so.type && so.type.startsWith('landscape') ? 'landscape' : 'portrait');
+    const lock = () => so.lock(want).then(
+      () => { this.orientStatus = `🔒 Rotation locked: ${want}`; this.orientProblem = false; },
+      err => this.orientFailed((err && err.name) || 'refused'));
     const installed = matchMedia('(display-mode: standalone)').matches;
     if (!installed && document.fullscreenEnabled && !document.fullscreenElement) {
       document.documentElement.requestFullscreen({ navigationUI: 'hide' }).then(lock, lock);
     } else lock();
+  }
+
+  orientFailed(why) {
+    this.orientProblem = true;
+    this.orientStatus = `⚠ Rotation lock unavailable (${why})`;
+    console.warn('[Orientation] lock failed:', why);
   }
 
   unlockOrientation() {
