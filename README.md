@@ -19,7 +19,7 @@ Pick them in the menu. Each one changes both the look and the physics.
 |---|---|---|---|
 | 💠 Neon | 1.0× | 1.0× | Classic arcade board |
 | 🪵 Wood | 1.7× | 0.75× | Grippy and forgiving, soft knocks |
-| 🧊 Glass | 0.4× | 1.2× | Slippery; you can see the pits through the floor |
+| 🧊 Glass | 0.4× | 1.2× | Slippery; clear glass shows the pits through the floor (in the Inside view it turns frosted and solid so the corridors stay readable) |
 | 🏛️ Marble | 0.7× | 1.35× | Quick, with springy walls |
 
 | Ball | Accel | Grip | Bounce | Top speed | Feel |

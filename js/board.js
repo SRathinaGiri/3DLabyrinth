@@ -73,6 +73,12 @@ export class BoardView {
     this.level = level;
     const L = boardLook(look.board, level.n, this.env);
     this.track(L.floor, L.side, L.wall, L.cap, L.base, ...L.textures);
+    // Remember clear-glass settings so the Inside view can swap to frosted glass and back
+    this.frost = L.frosted ? ['floor', 'side', 'wall'].map(k => ({
+      mat: L[k], to: L.frosted[k],
+      from: { color: L[k].color.getHex(), roughness: L[k].roughness, envMapIntensity: L[k].envMapIntensity, opacity: L[k].opacity, transparent: L[k].transparent, depthWrite: L[k].depthWrite }
+    })) : null;
+    this.frostOn = false;
     this.scene.background = new THREE.Color(L.bg);
     this.stars.visible = L.stars;
     this.sun.color.setHex(L.sun[0]); this.sun.intensity = L.sun[1];
@@ -211,6 +217,21 @@ export class BoardView {
     Object.assign(this.sun.shadow.camera, { left: -ext, right: ext, top: ext, bottom: -ext, near: 1, far: ext * 5 });
     this.sun.shadow.camera.updateProjectionMatrix();
     this.extent = { W, H };
+  }
+
+  /** Glass board only: frosted, opaque glass in the Inside view; clear glass in board views. */
+  setFrosted(on) {
+    if (!this.frost || on === this.frostOn) return;
+    this.frostOn = on;
+    for (const { mat, to, from } of this.frost) {
+      mat.color.setHex(on ? to.color : from.color);
+      mat.roughness = on ? to.roughness : from.roughness;
+      mat.envMapIntensity = on ? to.envMapIntensity : from.envMapIntensity; // strong reflections blow frosted walls out to white
+      mat.opacity = on ? 1 : from.opacity;
+      mat.transparent = on ? false : from.transparent;
+      mat.depthWrite = on ? true : from.depthWrite;
+      mat.needsUpdate = true; // transparency changes the shader program
+    }
   }
 
   /** Ease walls toward the target height (1 = normal, INSIDE_VIEW.WALL_SCALE = towering). */

@@ -1,5 +1,5 @@
 // Service Worker for 3D Labyrinth PWA (network-first, offline fallback; pattern from 3D Tunnel Rush)
-const CACHE_VERSION = 'labyrinth-v1.6.1';
+const CACHE_VERSION = 'labyrinth-v1.6.2';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

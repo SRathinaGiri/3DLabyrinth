@@ -169,7 +169,14 @@ export function boardLook(kind, levelN, env) {
         wall: std({ color: 0x9fe3ff, emissive: pal.edge, emissiveIntensity: 0.08, transparent: true, opacity: 0.42, roughness: 0.03, metalness: 0.1, envMap: env, envMapIntensity: 1.4 }),
         cap: new THREE.MeshBasicMaterial({ color: pal.edge }),
         base: std({ color: 0x0b1726, roughness: 0.15, metalness: 0.8, envMap: env }),
-        rim: 0xff3b5c, glowPits: true, textures: [floorTex]
+        rim: 0xff3b5c, glowPits: true, textures: [floorTex],
+        // Inside view only: see-through floor + walls are disorienting at ball height, so the glass
+        // turns frosted and solid there (still tinted and reflective). Board views stay clear glass.
+        frosted: {
+          floor: { color: 0x2c5566, roughness: 0.35, envMapIntensity: 0.35 },
+          side: { color: 0x24485a, roughness: 0.35, envMapIntensity: 0.35 },
+          wall: { color: 0x4f93ad, roughness: 0.3, envMapIntensity: 0.45 }
+        }
       };
     }
     case 'marble': {

@@ -421,6 +421,7 @@ class GameApp {
     if (xr) return;
     const inside = this.viewMode === 'INSIDE';
     this.board.setWallTarget(inside ? INSIDE_VIEW.WALL_SCALE : 1, dt);
+    this.board.setFrosted(inside);
     this.physics.hopHeight = PHYS.HOP_HEIGHT + BOARD.WALL_H * (this.board.wallScale - 1); // clear the taller walls
     r.fov += ((inside ? INSIDE_VIEW.FOV : 50) - r.fov) * Math.min(1, 4 * dt);
     const insideHud = inside && !this.hud.dialogVisible && this.physics.balls.length === 1;
