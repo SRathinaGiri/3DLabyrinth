@@ -241,6 +241,7 @@ export class UIManager {
       gyroWanted: a.controls.gyroWanted,
       gyroSensitivity: a.controls.gyroSensitivity,
       invertY: a.controls.invertY,
+      mapOn: a.mapOn,
       board: a.look.board,
       ball: a.look.ball
     };
@@ -258,6 +259,7 @@ export class UIManager {
     this['set_.sens-slider'](typeof s.gyroSensitivity === 'number' ? s.gyroSensitivity : 20);
     a.renderer.swapEyes = !!s.swapEyes; this.syncSwap();
     a.controls.invertY = !!s.invertY; this.syncInvert();
+    a.mapOn = s.mapOn !== false; // default on
     if (s.muted && !a.audio.muted) a.audio.toggleMute();
     this.syncMute();
     a.controls.gyroWanted = s.gyroWanted !== false; // default ON

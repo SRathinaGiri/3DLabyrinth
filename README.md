@@ -43,6 +43,7 @@ Board and ball values multiply together (grip → rolling resistance, bounce →
 - **Controls follow the camera:** forward rolls the ball the way you're looking. The camera turns 90° once the ball has travelled a new corridor for 0.3 s. A 180° turn waits until you stop pushing "back"; otherwise camera-relative controls would ping-pong.
 - **Camera details:** the camera pulls in and booms up when a wall is behind it. A headlamp lights the corridor, and a green light beam over the goal shows the way.
 - **Minimap** (Inside view only): a 3D panel at screen depth in the top-right of both eyes. It shows the whole maze **heading-up** (rotated in 90° steps so your forward direction is always up), with your ball and view cone, holes, gates, the start ring and the goal.
+- **🗺 Map toggle:** a small 3D icon above the minimap. Tap it in either eye's half (or press <kbd>N</kbd>) to show or hide the map. The tap never tilts the board, and the choice is remembered.
 
 ## Difficulty curve (`js/config.js`)
 | Level | What gets added |

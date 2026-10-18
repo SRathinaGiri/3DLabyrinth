@@ -45,7 +45,12 @@ export class HUD3D {
     this.map.mesh.visible = false;
     this.mapLayer = null;
     this.mapTimer = 0;
-    camera.add(this.bar.mesh, this.banner.mesh, this.dialog.mesh, this.map.mesh);
+    // 🗺 toggle icon (Inside view): a tappable 3D button, so it works in every stereo mode
+    this.mapBtn = makePanel(128, 128);
+    this.mapBtn.mesh.visible = false;
+    this.mapBtnNdc = { x: 0, y: 0, hw: 0, hh: 0 };
+    this.mapBtnOn = null;
+    camera.add(this.bar.mesh, this.banner.mesh, this.dialog.mesh, this.map.mesh, this.mapBtn.mesh);
     this.distance = 10;
     this.bannerTimer = 0;
   }
@@ -61,10 +66,15 @@ export class HUD3D {
     const bW = Math.min(viewW * 0.86, viewH * 1.1);
     this.banner.mesh.scale.set(bW, bW / 2, 1);
     this.banner.mesh.position.set(0, 0, -distance);
-    // Minimap: top-right, under the status bar
+    // Map toggle icon top-right under the status bar; minimap just below it
     const mS = Math.min(viewW * 0.4, viewH * 0.34), margin = viewH * 0.02;
+    const iS = Math.max(mS * 0.24, viewH * 0.075);
+    const iX = viewW / 2 - iS / 2 - margin, iY = viewH / 2 - barH - viewH * 0.03 - iS / 2;
+    this.mapBtn.mesh.scale.set(iS, iS, 1);
+    this.mapBtn.mesh.position.set(iX, iY, -distance * 0.997);
+    this.mapBtnNdc = { x: iX / (viewW / 2), y: iY / (viewH / 2), hw: iS / viewW, hh: iS / viewH };
     this.map.mesh.scale.set(mS, mS, 1);
-    this.map.mesh.position.set(viewW / 2 - mS / 2 - margin, viewH / 2 - barH - viewH * 0.03 - mS / 2, -distance * 0.998);
+    this.map.mesh.position.set(viewW / 2 - mS / 2 - margin, iY - iS / 2 - viewH * 0.015 - mS / 2, -distance * 0.998);
 
     const dW = Math.min(viewW * 0.94, viewH * 1.2), dH = dW * 0.625;
     this.dialog.mesh.scale.set(dW, dH, 1);
@@ -104,6 +114,36 @@ export class HUD3D {
   }
 
   setMapVisible(v) { this.map.mesh.visible = v && !!this.mapLayer; }
+
+  /** Show the 🗺 toggle (inside view) and draw it lit when the map is on. */
+  setMapButton(visible, on) {
+    this.mapBtn.mesh.visible = visible;
+    if (!visible || on === this.mapBtnOn) return;
+    this.mapBtnOn = on;
+    const g = this.mapBtn.ctx;
+    g.clearRect(0, 0, 128, 128);
+    g.fillStyle = on ? 'rgba(0,240,255,0.28)' : 'rgba(2,6,23,0.7)';
+    roundRect(g, 6, 6, 116, 116, 26); g.fill();
+    g.strokeStyle = on ? '#00f0ff' : 'rgba(148,163,184,0.6)'; g.lineWidth = 6; g.stroke();
+    // Folded-map glyph drawn as vectors: emoji rendering on canvas varies across headsets/glasses
+    const col = on ? '#e0fbff' : 'rgba(203,213,225,0.6)';
+    g.lineJoin = 'round'; g.lineWidth = 6; g.strokeStyle = col;
+    g.beginPath();
+    g.moveTo(26, 38); g.lineTo(50, 28); g.lineTo(78, 38); g.lineTo(102, 28);
+    g.lineTo(102, 90); g.lineTo(78, 100); g.lineTo(50, 90); g.lineTo(26, 100); g.closePath();
+    g.stroke();
+    g.beginPath(); g.moveTo(50, 28); g.lineTo(50, 90); g.moveTo(78, 38); g.lineTo(78, 100); g.stroke();
+    g.fillStyle = on ? '#ffc93c' : 'rgba(255,201,60,0.5)';
+    g.beginPath(); g.arc(64, 60, 9, 0, Math.PI * 2); g.fill();
+    this.mapBtn.tex.needsUpdate = true;
+  }
+
+  /** Eye-local NDC point over the 🗺 icon? */
+  hitMapButton(ndcX, ndcY) {
+    if (!this.mapBtn.mesh.visible) return false;
+    const b = this.mapBtnNdc, pad = 1.25; // slightly generous target for fingers
+    return Math.abs(ndcX - b.x) <= b.hw * pad && Math.abs(ndcY - b.y) <= b.hh * pad;
+  }
 
   /** Redraw ~12x/s: maze rotated so the camera's forward direction points up, ball at its true spot. */
   updateMap(ball, dir, dt) {
@@ -275,7 +315,7 @@ export class HUD3D {
 
   hideBanner() { this.banner.mesh.visible = false; this.bannerTimer = 0; }
 
-  setVisible(v) { this.bar.mesh.visible = v; if (!v) { this.hideBanner(); this.hideDialog(); this.setMapVisible(false); } }
+  setVisible(v) { this.bar.mesh.visible = v; if (!v) { this.hideBanner(); this.hideDialog(); this.setMapVisible(false); this.setMapButton(false); } }
 
   update(dt) {
     if (this.bannerTimer > 0) {

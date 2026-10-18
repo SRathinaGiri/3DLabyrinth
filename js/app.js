@@ -41,6 +41,7 @@ class GameApp {
     this.progress = loadProgress();
     this.look = { ...DEFAULT_LOOK }; // board surface + ball type, chosen in the menu
     this.inside = { dir: [0, -1], yaw: 0, pend: null, pendT: 0, back: INSIDE_VIEW.CAM_BACK };
+    this.mapOn = true; // Inside-view minimap, toggled by the 🗺 icon or N
 
     this.scene = new THREE.Scene();
     const canvas = document.getElementById('gameCanvas');
@@ -251,7 +252,11 @@ class GameApp {
       return [u * 2 - 1, 1 - v * 2];
     };
     this.controls.blockDrag = e => {
-      if (!this.hud.dialogVisible) return false;
+      if (!this.hud.dialogVisible) {
+        // 🗺 icon tap toggles the map and must not start a tilt drag
+        if (this.hud.hitMapButton(...toNdc(e))) { this.toggleMap(); return true; }
+        return false;
+      }
       const i = this.hud.hitIndex(...toNdc(e));
       if (i >= 0) { this.hud.setFocus(i); this.dialogAction(this.hud.focusedAction()); }
       return true;
@@ -291,6 +296,7 @@ class GameApp {
       case 'calibrate': this.calibrate(); break;
       case 'view': this.ui.setViewMode(this.cycleViewMode()); break;
       case 'mute': this.ui.toggleMute(); break;
+      case 'map': if (this.viewMode === 'INSIDE') this.toggleMap(); break;
       case 'confirm':
         if (this.state === 'MENU') this.startLevel(this.progress.unlocked);
         break;
@@ -305,6 +311,12 @@ class GameApp {
   cycleViewMode() {
     const order = ['AUTO', 'OVERVIEW', 'FOLLOW', 'INSIDE'];
     return order[(order.indexOf(this.viewMode) + 1) % order.length]; // the UI applies it (see viewChanged)
+  }
+
+  toggleMap() {
+    this.mapOn = !this.mapOn;
+    this.audio.playTick(false);
+    this.ui.saveSettings();
   }
 
   ballsForView(mode) { return mode === 'INSIDE' ? INSIDE_BALL_COUNT : BALL_COUNT; }
@@ -398,7 +410,9 @@ class GameApp {
     this.board.setWallTarget(inside ? INSIDE_VIEW.WALL_SCALE : 1, dt);
     this.physics.hopHeight = PHYS.HOP_HEIGHT + BOARD.WALL_H * (this.board.wallScale - 1); // clear the taller walls
     r.fov += ((inside ? INSIDE_VIEW.FOV : 50) - r.fov) * Math.min(1, 4 * dt);
-    this.hud.setMapVisible(inside && !this.hud.dialogVisible && this.physics.balls.length === 1);
+    const insideHud = inside && !this.hud.dialogVisible && this.physics.balls.length === 1;
+    this.hud.setMapVisible(insideHud && this.mapOn);
+    this.hud.setMapButton(insideHud, this.mapOn);
     if (inside) { this.updateInsideCamera(dt); return; }
     const { W, H } = this.board.extent;
     const aspect = r.eyeAspect();

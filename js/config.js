@@ -4,7 +4,7 @@
    Pure module (no THREE / DOM) so it can be unit-tested in Node.
    ========================================================================== */
 
-export const VERSION = '1.4.0';
+export const VERSION = '1.5.0';
 
 // Board geometry (world units; one maze cell = CELL x CELL)
 export const BOARD = {
