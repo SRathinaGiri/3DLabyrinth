@@ -110,6 +110,7 @@ class GameApp {
     }
     clearInterval(this.countdownTimer);
     this.closeDialog();
+    this.lockOrientation();
     this.loadLevel(n);
     this.ui.showGamePage();
     this.renderer.handleResize();
@@ -164,12 +165,33 @@ class GameApp {
 
   stopGame() {
     clearInterval(this.countdownTimer);
+    this.unlockOrientation();
     this.state = 'MENU';
     this.closeDialog();
     this.audio.stopMusic();
     this.controls.releaseWakeLock();
     this.hud.hideBanner();
     this.ui.showMenuPage();
+  }
+
+  /**
+   * Phones: tilting for the gyro must not flip the screen between portrait and landscape.
+   * Lock whatever orientation the player is holding when the level starts. Android allows the lock
+   * only in full-screen or in the installed app; iOS Safari has no lock API (use the phone's own lock).
+   */
+  lockOrientation() {
+    const so = screen.orientation;
+    if (!matchMedia('(pointer: coarse)').matches || !so || typeof so.lock !== 'function') return;
+    const type = so.type && so.type.startsWith('landscape') ? 'landscape' : 'portrait';
+    const lock = () => so.lock(type).catch(() => { /* not allowed here: nothing else to do */ });
+    const installed = matchMedia('(display-mode: standalone)').matches;
+    if (!installed && document.fullscreenEnabled && !document.fullscreenElement) {
+      document.documentElement.requestFullscreen({ navigationUI: 'hide' }).then(lock, lock);
+    } else lock();
+  }
+
+  unlockOrientation() {
+    try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch (_) { /* not locked */ }
   }
 
   saveProgress() {
@@ -516,7 +538,7 @@ class GameApp {
     r.cameraGroup.position.copy(eye);
     r.cameraGroup.quaternion.setFromRotationMatrix(m);
     this.board.setHeadlamp(eye, look);
-    this.hud.updateMap(b, ins.yaw, dt, this.physics.apples);
+    this.hud.updateMap(b, ins.yaw, dt, this.physics.apples, this.level.goal);
 
     const dist = Math.hypot(ins.back, V.CAM_HEIGHT - BOARD.BALL_R);
     this.cam.dist = dist;

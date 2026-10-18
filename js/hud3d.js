@@ -145,44 +145,67 @@ export class HUD3D {
     return Math.abs(ndcX - b.x) <= b.hw * pad && Math.abs(ndcY - b.y) <= b.hh * pad;
   }
 
-  /** Redraw ~12x/s. Fixed north-up map (a rotating map disorients); an arrow shows the heading. */
-  updateMap(ball, yaw, dt, apples = []) {
+  /**
+   * GPS-style minimap, redrawn ~15x/s: the ball stays put (lower-centre) with its arrow pointing UP,
+   * and the maze turns smoothly with the camera yaw, so "up" on the map is always "ahead" in 3D.
+   * A north marker rides the rim; the goal is pinned to the rim when it is off the map.
+   */
+  updateMap(ball, yaw, dt, apples = [], goal = null) {
     if (!this.map.mesh.visible || !this.mapLayer) return;
     this.mapTimer -= dt;
     if (this.mapTimer > 0) return;
-    this.mapTimer = 1 / 12;
+    this.mapTimer = 1 / 15;
     const g = this.map.ctx, S = MAP_PX, { scale, ox, oz, W, H } = this.mapXf;
+    const toLayer = (x, z) => [ox + (x + W / 2) * scale, oz + (z + H / 2) * scale];
+    // About 4.5 cells ahead fill the panel on big mazes; small mazes stay whole (never magnify below 1)
+    const zoom = Math.max(1, (S * 0.5) / (4.5 * BOARD.CELL) / scale);
+    const cx = S / 2, cy = S * 0.6, rim = S / 2 - 22;
+    const rot = -yaw; // turns the camera's forward (sin yaw, -cos yaw) to screen-up
+    const [bx, bz] = toLayer(ball.x, ball.z);
+    const toPanel = (lx, lz) => {
+      const dx = (lx - bx) * zoom, dz = (lz - bz) * zoom;
+      return [cx + dx * Math.cos(rot) - dz * Math.sin(rot), cy + dx * Math.sin(rot) + dz * Math.cos(rot)];
+    };
+
     g.clearRect(0, 0, S, S);
-    g.fillStyle = 'rgba(2,6,23,0.72)';
-    roundRect(g, 4, 4, S - 8, S - 8, 40); g.fill();
-    g.strokeStyle = 'rgba(0,240,255,0.55)'; g.lineWidth = 5; g.stroke();
+    g.fillStyle = 'rgba(2,6,23,0.78)';
+    g.beginPath(); g.arc(S / 2, S / 2, S / 2 - 6, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = 'rgba(0,240,255,0.6)'; g.lineWidth = 5; g.stroke();
+
+    g.save();
+    g.beginPath(); g.arc(S / 2, S / 2, S / 2 - 12, 0, Math.PI * 2); g.clip();
+    g.translate(cx, cy); g.rotate(rot); g.scale(zoom, zoom); g.translate(-bx, -bz);
     g.drawImage(this.mapLayer, 0, 0);
     for (const a of apples) {
       if (a.taken) continue;
-      const ax = ox + (a.x + W / 2) * scale, az = oz + (a.z + H / 2) * scale;
-      // Bigger than a hole and outlined in white so it never reads as one
-      g.fillStyle = '#ff3b3b'; g.strokeStyle = '#ffffff'; g.lineWidth = 4;
-      g.beginPath(); g.arc(ax, az, 15, 0, Math.PI * 2); g.fill(); g.stroke();
-      g.fillStyle = '#3ccf4e';
-      g.beginPath(); g.ellipse(ax + 7, az - 18, 9, 4.5, -0.5, 0, Math.PI * 2); g.fill();
+      const [ax, az] = toLayer(a.x, a.z), r = 15 / zoom;
+      g.fillStyle = '#ff3b3b'; g.strokeStyle = '#ffffff'; g.lineWidth = 4 / zoom;
+      g.beginPath(); g.arc(ax, az, r, 0, Math.PI * 2); g.fill(); g.stroke();
     }
-    const bx = ox + (ball.x + W / 2) * scale, bz = oz + (ball.z + H / 2) * scale;
-    const r = Math.max(11, BOARD.BALL_R * scale * 1.8);
-    // Heading arrow (board x -> canvas x, board z -> canvas y)
-    const hx = Math.sin(yaw), hz = -Math.cos(yaw), px = -hz, pz = hx;
-    const tip = r + 48, base = r + 4, half = 18;
-    g.fillStyle = '#ffc93c'; g.strokeStyle = '#020617'; g.lineWidth = 3;
-    g.beginPath();
-    g.moveTo(bx + hx * tip, bz + hz * tip);
-    g.lineTo(bx + hx * base + px * half, bz + hz * base + pz * half);
-    g.lineTo(bx + hx * base - px * half, bz + hz * base - pz * half);
-    g.closePath(); g.fill(); g.stroke();
-    // Ball
-    g.fillStyle = '#ffc93c'; g.strokeStyle = '#ffffff'; g.lineWidth = 3;
-    g.beginPath(); g.arc(bx, bz, r, 0, Math.PI * 2); g.fill(); g.stroke();
-    // North marker so the fixed orientation is obvious
-    g.fillStyle = 'rgba(226,232,240,0.85)'; g.font = '700 30px system-ui, sans-serif';
-    g.textAlign = 'center'; g.textBaseline = 'top'; g.fillText('N ▲', S / 2, 12);
+    g.restore();
+
+    // Goal: if off the map, pin a green marker to the rim in its direction
+    if (goal) {
+      const [gx, gz] = toPanel(...toLayer(goal.x, goal.z));
+      const dx = gx - S / 2, dz = gz - S / 2, d = Math.hypot(dx, dz);
+      if (d > rim) {
+        const ux = dx / d, uz = dz / d;
+        g.fillStyle = '#34ff9a'; g.strokeStyle = '#020617'; g.lineWidth = 3;
+        g.beginPath(); g.arc(S / 2 + ux * rim, S / 2 + uz * rim, 14, 0, Math.PI * 2); g.fill(); g.stroke();
+      }
+    }
+    // North marker on the rim
+    const nAng = rot - Math.PI / 2; // board north (0,-1) after rotation
+    g.fillStyle = '#e2e8f0'; g.font = '800 34px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText('N', S / 2 + Math.cos(nAng) * rim, S / 2 + Math.sin(nAng) * rim);
+
+    // Ball with its heading arrow: always pointing up = straight ahead in the 3D view
+    const r = 15;
+    g.fillStyle = '#ffc93c'; g.strokeStyle = '#020617'; g.lineWidth = 4;
+    g.beginPath(); g.moveTo(cx, cy - r - 46); g.lineTo(cx + 20, cy - r - 4); g.lineTo(cx - 20, cy - r - 4); g.closePath();
+    g.fill(); g.stroke();
+    g.strokeStyle = '#ffffff'; g.lineWidth = 4;
+    g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.fill(); g.stroke();
     this.map.tex.needsUpdate = true;
   }
 

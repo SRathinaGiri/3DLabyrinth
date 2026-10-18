@@ -43,7 +43,7 @@ Board and ball values multiply together (grip → rolling resistance, bounce →
 - **Ball count follows the view:** Inside = **1 ball**, every board view = **3 balls**. Crossing that line mid-level restarts the level, after a 3D "Restart level?" confirmation unless you're in the first 3 s. Esc or "Keep playing" reverts the view.
 - **Car-like camera:** forward rolls the ball the way you're looking. The camera eases toward the direction the ball is actually rolling (velocity low-passed so wall bounces don't jerk it). Its turn rate is capped at about 86°/s and scales down with ball speed, so it never spins on the spot. Holding left/right therefore steers like a car. Rolling backwards (more than 120° off) holds the camera, and a slow U-turn follows only after 1.2 s of reversing without pushing "back" (`INSIDE_VIEW` in `config.js`).
 - **Camera details:** the camera pulls in and booms up when a wall is behind it. A headlamp lights the corridor, and a green light beam over the goal shows the way.
-- **Minimap** (Inside view only): a 3D panel at screen depth in the top-right of both eyes. It shows the whole maze **fixed north-up** (marked N ▲), with your ball and an **arrow for the heading**, plus holes, gates, the start ring, apples and the goal.
+- **Minimap** (Inside view only): a round, GPS-style 3D panel at screen depth in both eyes. Your ball stays in the lower centre with its arrow pointing **up**, and the maze turns smoothly with the camera, so up on the map is always straight ahead in the 3D view. An **N** on the rim shows north, a green marker on the rim points to the goal when it's off the map, and apples, holes and gates are drawn too. Big mazes zoom to about 4.5 cells around you.
 - **🗺 Map toggle:** a small 3D icon above the minimap. Tap it in either eye's half (or press <kbd>N</kbd>) to show or hide the map. The tap never tilts the board, and the choice is remembered.
 
 ## Difficulty curve (`js/config.js`)
@@ -63,6 +63,9 @@ Stars: ★★★ for no falls and finishing within 66% of the time, ★★ for u
 - **Android / Chrome / Edge:** once the browser considers the page installable, a **📲 Install app** button appears in the menu header and a one-time banner offers it. Both open the system install prompt.
 - **iPhone / iPad:** Safari has no install prompt, so the button shows the *Share → Add to Home Screen* steps.
 - **What makes it installable:** the manifest has 192 px and 512 px PNG icons (normal + maskable, in `assets/`), `id`/`scope`/`start_url`, `display: standalone`, and a service worker with a fetch handler. `tests/version.test.mjs` checks the icons exist at the right sizes and are cached. It must be served over HTTPS (GitHub Pages is fine).
+
+## Screen rotation lock
+On phones, starting a level goes full-screen and **locks the orientation you're holding** (portrait or landscape), so tilting for the gyro can't flip the screen. It unlocks back at the menu, so you can turn the phone sideways before choosing a 3D side-by-side mode. Android allows this in full-screen or the installed app. **iPhone Safari has no lock API**, so use the phone's own rotation lock there.
 
 ## Run locally
 ES modules need a web server:
