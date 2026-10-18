@@ -31,7 +31,7 @@ Pick them in the menu. Each one changes both the look and the physics.
 Board and ball values multiply together (grip → rolling resistance, bounce → wall restitution, capped at 0.92). Physics note: on a real incline a heavy ball does not accelerate faster, because a = 5/7·g·sinθ regardless of mass. Steel feels fast because friction and bumps barely slow it, so its accel boost is a gameplay choice. Slow pairings get up to +40% on the timer (`timePace`). Impact sounds also change: steel pings, rubber thuds, wood dulls the knock, and glass/marble make it ring.
 
 ## Lives & 3D messages
-- **❤ Lives** are a pool shared by all three balls. You get +1 the first time you clear a level; replays don't earn lives.
+- **❤ Lives** are a reserve shared by all three balls. A new game starts with 1. You get +1 the first time you clear a level (replays don't earn lives), and the first clear also gets a confetti burst over the goal, a fanfare and a "🔓 Level N unlocked" line.
 - **Ball falls into a hole:** if you have a life, one is spent and the ball **hops over the hole** to the next safe cell towards the goal (never into the goal, a gate or another hole). With no lives it restarts at the blue ring as before.
 - **Time runs out:** if your lives cover every ball still out (e.g. 2 balls out, 5 lives), those lives are spent and the level counts as **rescued**, so you move on.
 - **🍎 Bonus apple** (level 4+, `APPLE` in `js/config.js`): one per level, at the dead end of a side branch 2–4 cells off the solution route. The cell just before it holds exactly **one guard**: a sliding gate or an offset hole on a straight, or a corner hole on a bend. Nothing else in the branch or at its junction may be a hurdle. Rolling a ball onto it gives **+1 life**. Each level's apple can be claimed **once, ever** (`progress.apples`), so replays can't farm lives, but a player who runs out can revisit earlier levels; those show 🍎 in the level list. The autopilot test fetches every apple from level 4 to 25 past its guard.
@@ -74,8 +74,11 @@ python -m http.server 8086
 ```
 Then open http://localhost:8086. Gyro access needs **HTTPS** on real phones; GitHub Pages provides that.
 
+## Menu
+Play, lives and the level list are always visible. **Board & Balls**, **Controls** and **3D Viewing** are collapsible sections, closed by default so first-time (mobile) players reach Play fast. Each header shows its current choice (e.g. *Neon · Plastic*), and which sections are open is remembered.
+
 ## Releasing
-Bump the version in **all** of: `js/config.js` (`VERSION`), `sw.js` (`CACHE_VERSION`), `manifest.json`, and `index.html` (badge + `?v=` on the CSS/JS). `tests/version.test.mjs` fails if any of them disagree, so an installed PWA always picks up the new cache.
+Bump the version in **all** of: `js/config.js` (`VERSION`), `sw.js` (`CACHE_VERSION`), `manifest.json`, and `index.html` (badge + `?v=` on the CSS/JS). `tests/version.test.mjs` fails if any of them disagree, so an installed PWA always picks up the new cache. The service worker only deletes old caches named `labyrinth-*`: other apps on the same `github.io` origin (e.g. 3D Tunnel Rush) keep their offline copies, and the test enforces that too.
 
 ## Tests
 ```bash

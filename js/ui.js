@@ -24,7 +24,32 @@ export class UIManager {
     this.bindControlSettings();
     this.buildLookPickers();
     this.loadSettings();
+    this.setupFolds();
     this.setupInstall();
+  }
+
+  /* ---------- Collapsible menu sections ---------- */
+  setupFolds() {
+    const key = '3d_labyrinth_folds';
+    let open = {};
+    try { open = JSON.parse(localStorage.getItem(key) || '{}') || {}; } catch (_) { open = {}; }
+    document.querySelectorAll('details.fold').forEach(d => {
+      d.open = !!open[d.dataset.fold];
+      d.addEventListener('toggle', () => {
+        open[d.dataset.fold] = d.open;
+        try { localStorage.setItem(key, JSON.stringify(open)); } catch (_) { /* storage blocked */ }
+      });
+    });
+    this.syncSummaries();
+  }
+
+  /** One-line summaries on the closed section headers. */
+  syncSummaries() {
+    const a = this.app;
+    const set = (id, text) => { if ($(id)) $(id).textContent = text; };
+    set('sumLook', `${BOARD_SURFACES[a.look.board].name} · ${BALL_TYPES[a.look.ball].name}`);
+    set('sumControls', `Gyro ${a.controls.gyroEnabled ? 'on' : a.controls.gyroWanted ? 'auto' : 'off'} · ${VIEW_LABEL[a.viewMode].replace(/^\S+ View: /, '')}`);
+    set('sum3d', `${{ '2d': '2D', parallel: 'Parallel 3D', cross: 'Cross-Eye 3D', anaglyph: 'Anaglyph', hsbs: 'Smart Glasses' }[a.renderer.mode]}${a.renderer.mode === '2d' ? '' : ` · depth ${a.depth.toFixed(2)}`}`);
   }
 
   /* ---------- Install as an app ---------- */
@@ -220,6 +245,7 @@ export class UIManager {
     if ($('gyroBadge')) $('gyroBadge').textContent = label;
     $('gyroToggle') && $('gyroToggle').classList.toggle('active', on || want);
     $('gameGyroBtn') && $('gameGyroBtn').classList.toggle('active', on);
+    if (this.app.look) this.syncSummaries();
   }
 
   /** silent = apply without asking the game to restart (used when cancelling a switch). */
@@ -236,7 +262,7 @@ export class UIManager {
     const grid = $('levelGrid');
     const p = this.app.progress;
     if ($('playBtn')) $('playBtn').textContent = p.unlocked > 1 ? `▶ Continue · Level ${p.unlocked}` : '▶ Play Level 1';
-    if ($('livesInfo')) $('livesInfo').textContent = `❤ ${p.lives} ${p.lives === 1 ? 'life' : 'lives'} · +1 for each new level cleared`;
+    if ($('livesInfo')) $('livesInfo').textContent = `❤ ${p.lives} shared ${p.lives === 1 ? 'life' : 'lives'} in reserve · earn more by clearing new levels and grabbing 🍎`;
     if (!grid) return;
     grid.innerHTML = '';
     for (let n = 1; n <= p.unlocked; n++) {
@@ -246,8 +272,7 @@ export class UIManager {
       // 🍎 = this level still has an unclaimed bonus life
       const apple = n >= APPLE.FROM_LEVEL && !p.apples[n] && buildLevel(n).apples.length > 0;
       b.innerHTML = `<span class="lv">${n}${apple ? '<span class="ap">🍎</span>' : ''}</span><span class="st">${best ? '★'.repeat(best.stars) + '☆'.repeat(3 - best.stars) : '···'}</span>`;
-      if (apple) b.title += ' · bonus apple waiting';
-      b.title = best ? `Level ${n} · best ${fmtTime(best.time)}` : `Level ${n}`;
+      b.title = (best ? `Level ${n} · best ${fmtTime(best.time)}` : `Level ${n}`) + (apple ? ' · bonus apple waiting' : '');
       b.addEventListener('click', e => { e.preventDefault(); this.app.startLevel(n); });
       grid.appendChild(b);
     }
@@ -294,6 +319,7 @@ export class UIManager {
       ball: a.look.ball
     };
     try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch (_) { /* storage blocked */ }
+    this.syncSummaries();
   }
 
   loadSettings() {

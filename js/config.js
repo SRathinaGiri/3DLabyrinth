@@ -4,7 +4,7 @@
    Pure module (no THREE / DOM) so it can be unit-tested in Node.
    ========================================================================== */
 
-export const VERSION = '1.7.1';
+export const VERSION = '1.8.0';
 
 // Board geometry (world units; one maze cell = CELL x CELL)
 export const BOARD = {
@@ -42,7 +42,8 @@ export const PHYS = {
 
 // Shared life pool. A life saves a falling ball (it hops past the hole) or, at
 // time-out, rescues each ball still out. Earned only on the FIRST clear of a level.
-export const LIVES = { START: 0, PER_NEW_LEVEL: 1, MAX: 99 };
+// START 1: a fresh game shouldn't greet the player with "0 lives" (existing saves keep their own count)
+export const LIVES = { START: 1, PER_NEW_LEVEL: 1, MAX: 99 };
 
 // Bonus apple: +1 life, at the dead end of a side branch behind a guard hurdle.
 // Each level's apple can be claimed once ever, so replays can't farm lives but a

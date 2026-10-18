@@ -74,6 +74,13 @@ class SoundEngine {
     this.tone(620, 0.55, { type: 'sine', vol: 0.22, slideTo: 70 });
   }
 
+  /** First clear of a level: rising fanfare on top of the normal clear jingle */
+  playFirstClear() {
+    if (!this.ok()) return;
+    [659.25, 783.99, 1046.5, 1318.5, 1567.98].forEach((f, i) => this.tone(f, 0.35, { type: 'triangle', vol: 0.12, at: 0.5 + i * 0.07 }));
+    this.tone(2093, 0.6, { type: 'sine', vol: 0.08, at: 0.9 });
+  }
+
   /** Bonus apple: bright sparkle arpeggio */
   playApple() {
     if (!this.ok()) return;

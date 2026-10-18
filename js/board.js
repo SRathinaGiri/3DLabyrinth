@@ -65,6 +65,7 @@ export class BoardView {
   track(...items) { this.disposables.push(...items); return items[0]; }
 
   build(level, look = DEFAULT_LOOK, ballCount = BALL_COLORS.length, apples = []) {
+    this.endCelebration();
     this.clear();
     // Walls, caps and gates live in one group so the Inside view can raise them in one scale
     this.wallGroup = new THREE.Group();
@@ -219,6 +220,48 @@ export class BoardView {
     this.extent = { W, H };
   }
 
+  /** Confetti burst over the goal (first clear of a level). */
+  celebrate(at) {
+    this.endCelebration();
+    const n = 220, pos = new Float32Array(n * 3), col = new Float32Array(n * 3), vel = new Float32Array(n * 3);
+    const palette = [0xffc93c, 0x00f0ff, 0xff4fa3, 0x34ff9a, 0xa855f7, 0xffffff].map(c => new THREE.Color(c));
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, s = 1.5 + Math.random() * 3.5;
+      pos.set([at.x, 0.4, at.z], i * 3);
+      vel.set([Math.cos(a) * s * 0.6, 4 + Math.random() * 5, Math.sin(a) * s * 0.6], i * 3);
+      const c = palette[i % palette.length];
+      col.set([c.r, c.g, c.b], i * 3);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const mat = new THREE.PointsMaterial({ size: 0.16, vertexColors: true, transparent: true, depthWrite: false });
+    this.confetti = { pts: new THREE.Points(geo, mat), vel, t: 0 };
+    this.boardGroup.add(this.confetti.pts);
+  }
+
+  endCelebration() {
+    if (!this.confetti) return;
+    this.boardGroup.remove(this.confetti.pts);
+    this.confetti.pts.geometry.dispose(); this.confetti.pts.material.dispose();
+    this.confetti = null;
+  }
+
+  updateCelebration(dt) {
+    const c = this.confetti;
+    if (!c) return;
+    c.t += dt;
+    const p = c.pts.geometry.attributes.position, v = c.vel;
+    for (let i = 0; i < v.length; i += 3) {
+      v[i + 1] -= 9 * dt; // gravity
+      v[i] *= 0.99; v[i + 2] *= 0.99;
+      p.array[i] += v[i] * dt; p.array[i + 1] += v[i + 1] * dt; p.array[i + 2] += v[i + 2] * dt;
+    }
+    p.needsUpdate = true;
+    c.pts.material.opacity = Math.max(0, 1 - (c.t - 1.6) / 1.2);
+    if (c.t > 2.8) this.endCelebration();
+  }
+
   /** Glass board only: frosted, opaque glass in the Inside view; clear glass in board views. */
   setFrosted(on) {
     if (!this.frost || on === this.frostOn) return;
@@ -285,5 +328,6 @@ export class BoardView {
       this.goalRing.scale.set(k, k, 1);
     }
     this.stars.rotation.y += dt * 0.01;
+    this.updateCelebration(dt);
   }
 }

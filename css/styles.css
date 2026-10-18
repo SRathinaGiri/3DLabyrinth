@@ -215,3 +215,18 @@ kbd { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2
 .banner-stack .update-banner { position: static; transform: none; width: 100%; pointer-events: auto; }
 .banner-stack .update-banner span { flex: 1; min-width: 0; }
 .banner-stack .install-banner { bottom: auto; }
+
+/* ---------------- Collapsible menu sections ---------------- */
+/* Closed by default so first-time players see Play + levels first; the summary shows the current choice */
+details.fold { display: block; padding: 0; }
+details.fold > summary {
+  list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-radius: 16px;
+}
+details.fold > summary::-webkit-details-marker { display: none; }
+details.fold > summary:hover { background: rgba(0,240,255,0.05); }
+details.fold > summary .section-h { align-self: center; white-space: nowrap; }
+.fold-sum { flex: 1; min-width: 0; color: var(--muted); font-size: 0.82rem; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fold-caret { color: var(--cyan); transition: transform var(--fast); }
+details.fold[open] .fold-caret { transform: rotate(180deg); }
+.fold-body { display: flex; flex-direction: column; gap: 12px; padding: 0 16px 16px; }
+.reset-line { text-align: center; }

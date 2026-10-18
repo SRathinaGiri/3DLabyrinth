@@ -12,7 +12,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Labyrinth3D">
-  <link rel="stylesheet" href="./css/styles.css?v=1.7.1">
+  <link rel="stylesheet" href="./css/styles.css?v=1.8.0">
   <!-- Three.js r128, bundled locally so the PWA works fully offline -->
   <script src="./js/lib/three.min.js"></script>
 </head>
@@ -28,7 +28,7 @@
           <circle cx="6" cy="12" r="1.8" fill="#ffc93c" stroke="none"/>
         </svg>
         <span>3D Labyrinth</span>
-        <span class="version-badge">v1.7.1</span>
+        <span class="version-badge">v1.8.0</span>
       </div>
       <div class="header-controls">
         <button class="icon-btn install-btn" id="installBtn" style="display:none" title="Install as an app on this device">📲 Install app</button>
@@ -49,8 +49,9 @@
         <div class="level-grid" id="levelGrid"></div>
       </section>
 
-      <section class="card">
-        <h3 class="section-h">🎨 Board &amp; Balls</h3>
+      <details class="card fold" data-fold="look">
+        <summary><span class="section-h">🎨 Board &amp; Balls</span><span class="fold-sum" id="sumLook"></span><span class="fold-caret" aria-hidden="true">▾</span></summary>
+        <div class="fold-body">
         <div class="look-row">
           <span class="look-label">Board</span>
           <div class="mode-selector" id="boardSelector" role="radiogroup" aria-label="Board surface"></div>
@@ -60,10 +61,12 @@
           <div class="mode-selector" id="ballSelector" role="radiogroup" aria-label="Ball type"></div>
         </div>
         <div class="look-stats" id="lookStats"></div>
-      </section>
+        </div>
+      </details>
 
-      <section class="card">
-        <h3 class="section-h">🎮 Controls</h3>
+      <details class="card fold" data-fold="controls">
+        <summary><span class="section-h">🎮 Controls</span><span class="fold-sum" id="sumControls"></span><span class="fold-caret" aria-hidden="true">▾</span></summary>
+        <div class="fold-body">
         <div class="row-wrap">
           <button class="icon-btn" id="gyroToggle" title="Tilt your phone to tilt the board">📱 <span id="gyroBadge">Gyro: AUTO</span></button>
           <button class="icon-btn" id="viewModeBtn" title="Camera: Auto / Whole board / Follow balls (V)">🎥 View: Auto</button>
@@ -76,10 +79,12 @@
         </div>
         <p class="hint">Phone: tilt (default) · or drag anywhere on the board like a joystick. Desktop: arrow keys / WASD or mouse-drag. Gamepad stick works too.
           <kbd>P</kbd> pause · <kbd>R</kbd> restart · <kbd>C</kbd> re-level gyro · <kbd>V</kbd> camera · <kbd>N</kbd> map on/off (Inside view).</p>
-      </section>
+        </div>
+      </details>
 
-      <section class="card">
-        <h3 class="section-h">👓 3D Viewing</h3>
+      <details class="card fold" data-fold="stereo">
+        <summary><span class="section-h">👓 3D Viewing</span><span class="fold-sum" id="sum3d"></span><span class="fold-caret" aria-hidden="true">▾</span></summary>
+        <div class="fold-body">
         <div class="mode-selector">
           <button class="mode-btn active" data-mode="2d">2D</button>
           <button class="mode-btn" data-mode="parallel">Parallel 3D (SBS)</button>
@@ -98,8 +103,9 @@
           <span class="val focus-val">0%</span>
         </div>
         <button class="icon-btn swap-btn">🔄 Swap Eyes</button>
-        <p class="hint"><button class="link-btn" id="resetProgressBtn">Reset level progress</button></p>
-      </section>
+        </div>
+      </details>
+      <p class="hint reset-line"><button class="link-btn" id="resetProgressBtn">Reset level progress</button></p>
     </main>
   </div>
 
@@ -215,6 +221,6 @@
     </div>
   </div>
 
-  <script type="module" src="./js/app.js?v=1.7.1"></script>
+  <script type="module" src="./js/app.js?v=1.8.0"></script>
 </body>
 </html>

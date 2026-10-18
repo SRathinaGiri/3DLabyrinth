@@ -1,5 +1,6 @@
 // Service Worker for 3D Labyrinth PWA (network-first, offline fallback; pattern from 3D Tunnel Rush)
-const CACHE_VERSION = 'labyrinth-v1.7.1';
+const CACHE_PREFIX = 'labyrinth-';
+const CACHE_VERSION = 'labyrinth-v1.8.0';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -34,7 +35,9 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys()
-      .then(names => Promise.all(names.filter(n => n !== CACHE_VERSION).map(n => caches.delete(n))))
+      // Only our own old caches: other games on the same origin (e.g. srathinagiri.github.io/3DTunnelRush)
+      // keep their offline copies.
+      .then(names => Promise.all(names.filter(n => n.startsWith(CACHE_PREFIX) && n !== CACHE_VERSION).map(n => caches.delete(n))))
       .then(() => self.clients.claim())
   );
 });

@@ -225,12 +225,18 @@ class GameApp {
     this.progress.unlocked = Math.max(this.progress.unlocked, n + 1);
     this.saveProgress();
     this.audio.playLevelComplete();
+    if (firstClear) {
+      // Progression beat: confetti over the goal + a brighter fanfare, only the first time
+      this.board.celebrate(this.level.goal);
+      this.audio.playFirstClear();
+    }
     this.vibrate([40, 60, 40]);
     this.controls.releaseWakeLock();
 
     const mm = Math.floor(t / 60), ss = String(Math.floor(t % 60)).padStart(2, '0');
     const lines = [`Time ${mm}:${ss}${isBest ? ' (best!)' : ''} · Falls ${falls}${saves ? ` · Saves ${saves}` : ''}`];
     if (rescuedWith) lines.unshift(`Rescued with ${rescuedWith} ❤`);
+    if (firstClear) lines.push(`🔓 Level ${n + 1} unlocked!`);
     const gained = (firstClear ? LIVES.PER_NEW_LEVEL : 0) + (this.appleThisRun ? 1 : 0);
     const why = [firstClear && 'new level', this.appleThisRun && '🍎'].filter(Boolean).join(' + ');
     lines.push(`❤ ${this.progress.lives} ${this.progress.lives === 1 ? 'life' : 'lives'}${gained ? `  (+${gained} ${why})` : ''}`);

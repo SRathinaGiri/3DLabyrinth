@@ -41,3 +41,11 @@ test('PWA is installable: PNG 192/512 icons (any + maskable) exist, are listed a
     }
   }
 });
+
+test('service worker only deletes its own old caches (other apps share the github.io origin)', () => {
+  const sw = read('sw.js');
+  const activate = sw.slice(sw.indexOf("addEventListener('activate'"), sw.indexOf("addEventListener('message'"));
+  assert.match(activate, /startsWith\(CACHE_PREFIX\)/, 'activate must filter cache names by our prefix');
+  assert.match(sw, /CACHE_PREFIX = 'labyrinth-'/);
+  assert.match(sw, /CACHE_VERSION = 'labyrinth-v/);
+});
