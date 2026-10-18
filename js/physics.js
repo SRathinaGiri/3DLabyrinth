@@ -4,8 +4,8 @@
    Pure module (no THREE / DOM) so it can be unit-tested in Node.
    ========================================================================== */
 
-import { BOARD, PHYS, BALL_COUNT, APPLE, surfacePhysics } from './config.js';
-import { hopTarget } from './maze.js';
+import { BOARD, PHYS, BALL_COUNT, APPLE, CORRIDOR_HALF, surfacePhysics } from './config.js';
+import { hopTarget, N, E, S, W } from './maze.js';
 
 const R = BOARD.BALL_R;
 // Triangle formation inside the start cell
@@ -19,6 +19,7 @@ export class PhysicsWorld {
     this.level = level;
     this.surf = surface; // grip / bounce for the chosen board + ball materials
     this.walls = level.walls;
+    this.cells = level.cells;
     this.holes = level.holes;
     this.goal = level.goal;
     this.sliders = level.sliders.map(s => ({ ...s, box: { minX: 0, maxX: 0, minZ: 0, maxZ: 0 }, vx: 0, vz: 0 }));
@@ -46,7 +47,7 @@ export class PhysicsWorld {
       const x = sp.x + ox, z = sp.z + oz;
       const free = force || this.balls.every(o => o === b || o.state !== 'roll' || (o.x - x) ** 2 + (o.z - z) ** 2 > (2 * R + 0.02) ** 2);
       if (free) {
-        Object.assign(b, { x, z, y: R, vx: 0, vz: 0, vy: 0, state: 'roll', timer: 0 });
+        Object.assign(b, { x, z, px: x, pz: z, y: R, vx: 0, vz: 0, vy: 0, state: 'roll', timer: 0 }); // teleport: reset tunnel guard
         return true;
       }
     }
@@ -79,15 +80,16 @@ export class PhysicsWorld {
       this.time += h;
       this.updateSliders(this.time);
       for (const b of this.balls) {
-        if (b.state === 'roll') this.integrate(b, h, ax, az, events);
+        if (b.state === 'roll') { b.px = b.x; b.pz = b.z; this.integrate(b, h, ax, az, events); }
         else this.animateOffBoard(b, h, events);
       }
       maxBall = Math.max(maxBall, this.collideBalls());
       for (const b of this.balls) {
         if (b.state !== 'roll') continue;
-        for (const sl of this.sliders) collideBox(b, sl.box, sl.vx, sl.vz, this.surf.wallRestitution);
+        for (const sl of this.sliders) collideSlider(b, sl, this.surf.wallRestitution);
         // Walls last: a static wall always wins over a pushing slider
         for (const w of this.walls) maxWall = Math.max(maxWall, collideBox(b, w, 0, 0, this.surf.wallRestitution));
+        this.keepOnOpenSide(b);
       }
     }
     if (maxWall > 0.6 && events.wallHit) events.wallHit(maxWall);
@@ -150,7 +152,7 @@ export class PhysicsWorld {
       b.x = b.hx0 + (b.hx1 - b.hx0) * e;
       b.z = b.hz0 + (b.hz1 - b.hz0) * e;
       b.y = R + Math.sin(Math.PI * p) * this.hopHeight;
-      if (p >= 1) { b.state = 'roll'; b.y = R; }
+      if (p >= 1) { b.state = 'roll'; b.y = R; b.px = b.x; b.pz = b.z; } // landed: a legal jump, not a tunnel
     } else if (b.state === 'falling') {
       b.vy -= 30 * h; b.y += b.vy * h;
       b.x += (b.fx - b.x) * Math.min(1, 10 * h);
@@ -195,6 +197,64 @@ export class PhysicsWorld {
   }
 
   get allHome() { return this.captured >= this.balls.length; }
+
+  cellAt(x, z) {
+    const { CELL } = BOARD, L = this.level;
+    return { c: Math.floor((x + L.cols * CELL / 2) / CELL), r: Math.floor((z + L.rows * CELL / 2) / CELL) };
+  }
+
+  /**
+   * Safety net against tunnelling: a ball may only change cell through an open side. If anything
+   * (a pinching gate, a hard ball-ball shove) carried it across a wall this substep, put it back
+   * where it was and bounce it, instead of letting it appear in the next corridor or the goal.
+   */
+  keepOnOpenSide(b) {
+    const a = this.cellAt(b.px, b.pz), c = this.cellAt(b.x, b.z), L = this.level;
+    if (a.c === c.c && a.r === c.r) return;
+    const dc = c.c - a.c, dr = c.r - a.r;
+    const inside = q => q.c >= 0 && q.r >= 0 && q.c < L.cols && q.r < L.rows;
+    let ok = false;
+    if (inside(a) && inside(c) && Math.abs(dc) + Math.abs(dr) === 1) {
+      const bit = dc === 1 ? E : dc === -1 ? W : dr === 1 ? S : N;
+      ok = !(this.cells[a.r * L.cols + a.c] & bit);
+    }
+    if (ok) return;
+    b.x = b.px; b.z = b.pz;
+    if (dc) b.vx = -b.vx * 0.5;
+    if (dr) b.vz = -b.vz * 0.5;
+  }
+}
+
+/**
+ * Ball vs a sliding gate. Gates sweep ACROSS a corridor, so a ball caught between the gate and the
+ * corridor wall must not be pushed sideways (into the wall: that is how balls used to tunnel into
+ * the next cell). If the sideways push would leave the corridor, or the gate already overlaps the
+ * ball's centre, kick the ball back ALONG the corridor, out of the face it came in from.
+ */
+export function collideSlider(b, sl, e) {
+  const across = sl.moveAxis, along = across === 'x' ? 'z' : 'x';
+  const vAcross = across === 'x' ? 'vx' : 'vz', vAlong = across === 'x' ? 'vz' : 'vx';
+  const box = sl.box;
+  const cx = clamp(b.x, box.minX, box.maxX), cz = clamp(b.z, box.minZ, box.maxZ);
+  if ((b.x - cx) ** 2 + (b.z - cz) ** 2 >= R * R) return 0;
+  const limit = CORRIDOR_HALF - R + 0.005; // furthest the ball's centre may sit from the corridor axis
+  const trial = { x: b.x, z: b.z, vx: b.vx, vz: b.vz };
+  const hit = collideBox(trial, box, sl.vx, sl.vz, e);
+  const centreWasInside = b.x > box.minX && b.x < box.maxX && b.z > box.minZ && b.z < box.maxZ;
+  if (!centreWasInside && Math.abs(trial[across] - sl[across]) <= limit) {
+    Object.assign(b, trial); // ordinary contact: keep the normal response
+    return hit;
+  }
+  // Pinched: eject along the corridor on the side the ball came from
+  const gateAlong = across === 'x' ? sl.cz : sl.cx;
+  const thin = BOARD.SLIDER_ALONG / 2;
+  let dir = Math.sign(b[along] - gateAlong);
+  if (!dir) dir = Math.sign((across === 'x' ? b.pz : b.px) - gateAlong) || -Math.sign(b[vAlong]) || 1;
+  b[along] = gateAlong + dir * (thin + R + 0.002);
+  b[across] = clamp(b[across], sl[across] - limit, sl[across] + limit);
+  if (b[vAlong] * dir < 0.6) b[vAlong] = dir * Math.max(0.6, Math.abs(b[vAlong]) * e); // knocked back where it came from
+  b[vAcross] *= 0.3;
+  return Math.abs(sl.vx + sl.vz);
 }
 
 /** Circle (ball) vs AABB with optional box velocity. Returns impact speed (0 if none). */

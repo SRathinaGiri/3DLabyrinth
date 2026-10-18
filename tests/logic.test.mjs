@@ -169,3 +169,40 @@ test('explorer mode: a single ball starts centred and completes the level alone'
   for (let f = 0; f < 30; f++) w.step(1 / 60, 0, 0);
   assert.ok(w.allHome);
 });
+
+test('a sliding gate never squeezes a ball through a wall (pinch regression)', () => {
+  const cellOf = (L, b) => ({
+    c: Math.floor((b.x + L.cols * BOARD.CELL / 2) / BOARD.CELL),
+    r: Math.floor((b.z + L.rows * BOARD.CELL / 2) / BOARD.CELL)
+  });
+  const g = PHYS.G * PHYS.ROLL_FACTOR * Math.sin(16 * Math.PI / 180);
+  let scenarios = 0;
+  for (let n = 4; n <= 30; n++) {
+    const L = buildLevel(n);
+    for (const s of L.sliders) {
+      for (const side of [-1, 1]) for (const alongOff of [-0.3, 0, 0.3]) for (const phase of [0, 1.3, 2.6, 3.9, 5.2]) {
+        const w = new PhysicsWorld(L, undefined, 1);
+        w.sliders.forEach(x => { if (x.c === s.c && x.r === s.r) x.phase = phase; });
+        const b = w.balls[0];
+        // Ball hugging one corridor wall inside the gate cell; tilt keeps it pressed there
+        const across = s.moveAxis, along = across === 'x' ? 'z' : 'x';
+        Object.assign(b, { [across]: s[across] + side * (CORRIDOR_HALF - BOARD.BALL_R - 0.01), [along]: s[along] + alongOff, vx: 0, vz: 0 });
+        const ax = across === 'x' ? side * g : 0, az = across === 'z' ? side * g : 0;
+        let prev = cellOf(L, b);
+        for (let f = 0; f < 240 && b.state === 'roll'; f++) {
+          w.step(1 / 60, ax, az);
+          if (b.state !== 'roll') break;
+          const cur = cellOf(L, b);
+          if (cur.c !== prev.c || cur.r !== prev.r) {
+            const open = openNeighbours(L.cells, L.cols, L.rows, prev.c, prev.r).some(nb => nb.c === cur.c && nb.r === cur.r);
+            assert.ok(open, `level ${n} gate (${s.c},${s.r}): ball crossed a wall from (${prev.c},${prev.r}) to (${cur.c},${cur.r}) at frame ${f}`);
+            prev = cur;
+          }
+        }
+        assert.notEqual(b.state, 'captured', `level ${n} gate (${s.c},${s.r}): ball reached the goal without rolling there`);
+        scenarios++;
+      }
+    }
+  }
+  assert.ok(scenarios > 500);
+});
