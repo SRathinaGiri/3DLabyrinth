@@ -25,10 +25,10 @@ function loadProgress() {
     if (p && p.unlocked >= 1) {
       // Saves from before lives existed get credit for the levels already cleared
       const lives = Number.isInteger(p.lives) ? p.lives : Math.min(LIVES.MAX, LIVES.START + (p.unlocked - 1) * LIVES.PER_NEW_LEVEL);
-      return { unlocked: p.unlocked | 0, best: p.best || {}, lives };
+      return { unlocked: p.unlocked | 0, best: p.best || {}, lives, apples: p.apples || {} };
     }
   } catch (_) { /* corrupt or blocked storage: start fresh */ }
-  return { unlocked: 1, best: {}, lives: LIVES.START };
+  return { unlocked: 1, best: {}, lives: LIVES.START, apples: {} };
 }
 
 class GameApp {
@@ -85,7 +85,10 @@ class GameApp {
     this.physics = new PhysicsWorld(this.level, surf, this.ballsForView(this.viewMode));
     // A falling ball spends a life (if any) and hops past the hole instead of restarting
     this.physics.onFallSave = () => this.state === 'PLAYING' && this.spendLives(1);
-    this.board.build(this.level, this.look, this.physics.balls.length);
+    // Each level's bonus apple can be claimed once ever: already-claimed ones never appear
+    for (const a of this.physics.apples) if (this.progress.apples[n]) a.taken = true;
+    this.appleThisRun = false;
+    this.board.build(this.level, this.look, this.physics.balls.length, this.physics.apples);
     // Inside camera starts facing down the first corridor of the solution path
     const [p0, p1] = this.level.path;
     this.inside.dir = p1 ? [Math.sign(p1.c - p0.c), Math.sign(p1.r - p0.r)] : [0, -1];
@@ -206,7 +209,9 @@ class GameApp {
     const mm = Math.floor(t / 60), ss = String(Math.floor(t % 60)).padStart(2, '0');
     const lines = [`Time ${mm}:${ss}${isBest ? ' (best!)' : ''} · Falls ${falls}${saves ? ` · Saves ${saves}` : ''}`];
     if (rescuedWith) lines.unshift(`Rescued with ${rescuedWith} ❤`);
-    lines.push(`❤ ${this.progress.lives} ${this.progress.lives === 1 ? 'life' : 'lives'}${firstClear ? `  (+${LIVES.PER_NEW_LEVEL} new level)` : ''}`);
+    const gained = (firstClear ? LIVES.PER_NEW_LEVEL : 0) + (this.appleThisRun ? 1 : 0);
+    const why = [firstClear && 'new level', this.appleThisRun && '🍎'].filter(Boolean).join(' + ');
+    lines.push(`❤ ${this.progress.lives} ${this.progress.lives === 1 ? 'life' : 'lives'}${gained ? `  (+${gained} ${why})` : ''}`);
     this.openDialog({
       title: rescuedWith ? `LEVEL ${n} RESCUED` : `LEVEL ${n} CLEAR!`,
       color: rescuedWith ? '#ffc93c' : '#34ff9a',
@@ -372,7 +377,15 @@ class GameApp {
           this.audio.playSave(); this.vibrate([30, 40, 30]);
           this.hud.showBanner('❤ SAVED', `Hopped over the hole · ${this.progress.lives} left`, '#ff4f7a', 1.1);
         },
-        capture: b => { this.audio.playCapture(b.slot); this.vibrate(30); }
+        capture: b => { this.audio.playCapture(b.slot); this.vibrate(30); },
+        apple: () => {
+          this.progress.lives = Math.min(LIVES.MAX, this.progress.lives + 1);
+          this.progress.apples[this.level.n] = true;
+          this.appleThisRun = true;
+          this.saveProgress();
+          this.audio.playApple(); this.vibrate([20, 30, 20, 30, 60]);
+          this.hud.showBanner('🍎 +1 LIFE', `Bonus apple · ❤ ${this.progress.lives}`, '#ff5a5a', 1.4);
+        }
       });
       this.elapsed += dt;
       const tl = this.level.timeLimit;
@@ -505,7 +518,7 @@ class GameApp {
     r.cameraGroup.position.copy(eye);
     r.cameraGroup.quaternion.setFromRotationMatrix(m);
     this.board.setHeadlamp(eye, look);
-    this.hud.updateMap(b, ins.dir, dt);
+    this.hud.updateMap(b, ins.dir, dt, this.physics.apples);
 
     const dist = Math.hypot(ins.back, V.CAM_HEIGHT - BOARD.BALL_R);
     this.cam.dist = dist;

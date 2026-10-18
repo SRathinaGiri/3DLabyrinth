@@ -202,3 +202,4 @@ kbd { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2
 .look-stats .desc { grid-column: 1 / -1; color: var(--muted); line-height: 1.5; }
 
 .lives-info { color: #ff7a9a; font-weight: 700; font-size: 0.9rem; }
+.level-btn .ap { font-size: 0.7rem; margin-left: 2px; vertical-align: super; }

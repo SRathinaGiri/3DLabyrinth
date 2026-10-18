@@ -146,7 +146,7 @@ export class HUD3D {
   }
 
   /** Redraw ~12x/s: maze rotated so the camera's forward direction points up, ball at its true spot. */
-  updateMap(ball, dir, dt) {
+  updateMap(ball, dir, dt, apples = []) {
     if (!this.map.mesh.visible || !this.mapLayer) return;
     this.mapTimer -= dt;
     if (this.mapTimer > 0) return;
@@ -164,6 +164,15 @@ export class HUD3D {
     g.translate(-c, -c);
     g.drawImage(this.mapLayer, 0, 0);
     const bx = ox + (ball.x + W / 2) * scale, bz = oz + (ball.z + H / 2) * scale;
+    for (const a of apples) {
+      if (a.taken) continue;
+      const ax = ox + (a.x + W / 2) * scale, az = oz + (a.z + H / 2) * scale;
+      // Bigger than a hole and outlined in white so it never reads as one
+      g.fillStyle = '#ff3b3b'; g.strokeStyle = '#ffffff'; g.lineWidth = 4;
+      g.beginPath(); g.arc(ax, az, 15, 0, Math.PI * 2); g.fill(); g.stroke();
+      g.fillStyle = '#3ccf4e';
+      g.beginPath(); g.ellipse(ax + 7, az - 18, 9, 4.5, -0.5, 0, Math.PI * 2); g.fill();
+    }
     // View cone
     const ang = Math.atan2(dir[1], dir[0]), len = 95;
     const grad = g.createRadialGradient(bx, bz, 4, bx, bz, len);

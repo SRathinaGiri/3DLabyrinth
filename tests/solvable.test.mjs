@@ -10,23 +10,40 @@ import { PHYS, surfacePhysics } from '../js/config.js';
 
 const DEG = Math.PI / 180;
 
-function solve(n, board = 'neon', ball = 'plastic', maxSeconds = 2400) {
+/** Shortest cell route between two cells (BFS through open walls). */
+function routeCells(L, from, to) {
+  const key = (c, r) => r * L.cols + c, parent = new Map([[key(from.c, from.r), null]]), q = [from];
+  for (let i = 0; i < q.length; i++) {
+    for (const nb of openNeighbours(L.cells, L.cols, L.rows, q[i].c, q[i].r)) {
+      if (!parent.has(key(nb.c, nb.r))) { parent.set(key(nb.c, nb.r), q[i]); q.push(nb); }
+    }
+  }
+  const out = [];
+  for (let c = to; c; c = parent.get(key(c.c, c.r))) out.unshift({ c: c.c, r: c.r });
+  return out;
+}
+
+/** target 'goal': bring every ball home. target 'apple': one ball detours to the bonus apple. */
+function solve(n, board = 'neon', ball = 'plastic', maxSeconds = 2400, target = 'goal') {
   const L = buildLevel(n);
   const surf = surfacePhysics(board, ball);
   const w = new PhysicsWorld(L, surf);
-  const pts = L.path.map(q => cellCenter(L, q.c, q.r));
-  pts.push({ x: L.goal.x, z: L.goal.z });
-  // Distance-to-finish map, so a ball knocked into a side branch can route back
+  const forApple = target === 'apple';
+  const tCell = forApple ? { c: L.apples[0].c, r: L.apples[0].r } : L.finish;
+  const route = forApple ? routeCells(L, L.start, tCell) : L.path;
+  const pts = route.map(q => cellCenter(L, q.c, q.r));
+  if (!forApple) pts.push({ x: L.goal.x, z: L.goal.z });
+  // Distance-to-target map, so a ball knocked into a side branch can route back
   const key = (c, r) => r * L.cols + c;
-  const toGoal = new Map([[key(L.finish.c, L.finish.r), 0]]);
-  const bq = [L.finish];
+  const toGoal = new Map([[key(tCell.c, tCell.r), 0]]);
+  const bq = [tCell];
   for (let i = 0; i < bq.length; i++) {
     const q = bq[i];
     for (const nb of openNeighbours(L.cells, L.cols, L.rows, q.c, q.r)) {
       if (!toGoal.has(key(nb.c, nb.r))) { toGoal.set(key(nb.c, nb.r), toGoal.get(key(q.c, q.r)) + 1); bq.push(nb); }
     }
   }
-  const pathIdx = new Map(L.path.map((q, i) => [key(q.c, q.r), i]));
+  const pathIdx = new Map(route.map((q, i) => [key(q.c, q.r), i]));
   const cellOf = b => ({
     c: Math.max(0, Math.min(L.cols - 1, Math.floor((b.x + L.cols * BOARD.CELL / 2) / BOARD.CELL))),
     r: Math.max(0, Math.min(L.rows - 1, Math.floor((b.z + L.rows * BOARD.CELL / 2) / BOARD.CELL)))
@@ -42,6 +59,7 @@ function solve(n, board = 'neon', ball = 'plastic', maxSeconds = 2400) {
     w.step(dt, g * Math.sin(tx), -g * Math.sin(tz));
   };
   while (t < maxSeconds) {
+    if (forApple && w.apples[0].taken) return { ok: true, t, falls: w.falls };
     if (active.state === 'captured') {
       if (!queue.length) return { ok: true, t, falls: w.falls };
       active = queue.shift(); active.state = 'roll'; w.placeAtStart(active, active.id, true); idx = 0;
@@ -116,3 +134,15 @@ for (const [board, ball] of [['glass', 'metal'], ['wood', 'rubber'], ['marble', 
     console.log(`${board}/${ball} ` + report.join(' '));
   });
 }
+
+test('bonus apple is reachable past its guard (levels 4-25)', () => {
+  const report = [];
+  for (let n = 4; n <= 25; n++) {
+    const L = buildLevel(n);
+    if (!L.apples.length) continue;
+    const r = solve(n, 'neon', 'plastic', 900, 'apple');
+    report.push(`L${n}:${L.apples[0].guard}:${r.ok ? `${r.t.toFixed(0)}s` : 'FAIL'}`);
+    assert.ok(r.ok, `level ${n} apple (${L.apples[0].guard}) not reached: ${JSON.stringify(r)}`);
+  }
+  console.log(report.join(' '));
+});

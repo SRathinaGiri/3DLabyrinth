@@ -2,7 +2,8 @@
    3D LABYRINTH - UI MANAGER (menus, modals, settings persistence)
    ========================================================================== */
 
-import { BOARD_SURFACES, BALL_TYPES, PHYS, LIVES, surfacePhysics, timePace } from './config.js';
+import { BOARD_SURFACES, BALL_TYPES, PHYS, LIVES, APPLE, surfacePhysics, timePace } from './config.js';
+import { buildLevel } from './maze.js';
 
 const SETTINGS_KEY = '3d_labyrinth_settings';
 const VIEW_LABEL = { AUTO: '🎥 View: Auto', OVERVIEW: '🗺️ View: Whole board', FOLLOW: '🎯 View: Follow balls', INSIDE: '🧍 View: Inside · 1 ball' };
@@ -41,7 +42,7 @@ export class UIManager {
     this.on('settingsBackBtn', () => this.hideModals()); // back to the 3D pause panel
     this.on('resetProgressBtn', () => {
       if (!confirm('Reset all level progress and best times?')) return;
-      a.progress = { unlocked: 1, best: {}, lives: LIVES.START };
+      a.progress = { unlocked: 1, best: {}, lives: LIVES.START, apples: {} };
       try { localStorage.removeItem('3d_labyrinth_progress'); } catch (_) { /* storage blocked */ }
       this.renderLevelGrid();
     });
@@ -198,7 +199,10 @@ export class UIManager {
       const b = document.createElement('button');
       b.className = 'level-btn' + (n === p.unlocked ? ' current' : '');
       const best = p.best[n];
-      b.innerHTML = `<span class="lv">${n}</span><span class="st">${best ? '★'.repeat(best.stars) + '☆'.repeat(3 - best.stars) : '···'}</span>`;
+      // 🍎 = this level still has an unclaimed bonus life
+      const apple = n >= APPLE.FROM_LEVEL && !p.apples[n] && buildLevel(n).apples.length > 0;
+      b.innerHTML = `<span class="lv">${n}${apple ? '<span class="ap">🍎</span>' : ''}</span><span class="st">${best ? '★'.repeat(best.stars) + '☆'.repeat(3 - best.stars) : '···'}</span>`;
+      if (apple) b.title += ' · bonus apple waiting';
       b.title = best ? `Level ${n} · best ${fmtTime(best.time)}` : `Level ${n}`;
       b.addEventListener('click', e => { e.preventDefault(); this.app.startLevel(n); });
       grid.appendChild(b);

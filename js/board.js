@@ -64,7 +64,7 @@ export class BoardView {
 
   track(...items) { this.disposables.push(...items); return items[0]; }
 
-  build(level, look = DEFAULT_LOOK, ballCount = BALL_COLORS.length) {
+  build(level, look = DEFAULT_LOOK, ballCount = BALL_COLORS.length, apples = []) {
     this.clear();
     // Walls, caps and gates live in one group so the Inside view can raise them in one scale
     this.wallGroup = new THREE.Group();
@@ -175,6 +175,25 @@ export class BoardView {
     this.beacon.visible = false;
     this.boardGroup.add(this.beacon);
 
+    // Bonus apples (one mesh per physics apple; claimed ones stay hidden)
+    this.appleMeshes = apples.map(a => {
+      const grp = new THREE.Group();
+      const body = new THREE.Mesh(this.track(new THREE.SphereGeometry(0.26, 24, 16)), this.track(new THREE.MeshStandardMaterial({ color: 0xe0242c, roughness: 0.3, emissive: 0x4a0000, envMap: this.env, envMapIntensity: 0.6 })));
+      body.scale.set(1, 0.88, 1);
+      const stem = new THREE.Mesh(this.track(new THREE.CylinderGeometry(0.025, 0.03, 0.16, 6)), this.track(new THREE.MeshStandardMaterial({ color: 0x5b3a1a })));
+      stem.position.y = 0.27;
+      const leaf = new THREE.Mesh(this.track(new THREE.SphereGeometry(0.09, 10, 6)), this.track(new THREE.MeshStandardMaterial({ color: 0x3ccf4e, emissive: 0x0a3a10 })));
+      leaf.scale.set(1.4, 0.3, 0.7); leaf.position.set(0.09, 0.3, 0); leaf.rotation.z = -0.5;
+      const glow = new THREE.Mesh(this.track(new THREE.SphereGeometry(0.46, 20, 12)), this.track(new THREE.MeshBasicMaterial({ color: 0xff6a5a, transparent: true, opacity: 0.14, depthWrite: false, blending: THREE.AdditiveBlending })));
+      grp.add(body, stem, leaf, glow);
+      grp.position.set(a.x, 0.5, a.z);
+      grp.scale.setScalar(1.25);
+      body.castShadow = true;
+      grp.visible = !a.taken;
+      this.boardGroup.add(grp);
+      return grp;
+    });
+
     BALL_COLORS.slice(0, ballCount).forEach(color => {
       const mat = ballMaterial(look.ball, color, this.env);
       this.track(mat, ...(mat.map ? [mat.map] : []));
@@ -228,6 +247,13 @@ export class BoardView {
       }
       mesh.position.set(b.x, b.y, b.z);
       mesh.visible = b.state !== 'respawn';
+    });
+    physics.apples.forEach((a, i) => {
+      const m = this.appleMeshes && this.appleMeshes[i];
+      if (!m) return;
+      m.visible = !a.taken;
+      m.rotation.y += dt * 1.6;
+      m.position.y = 0.5 + Math.sin(this.elapsed * 2.4 + i) * 0.08; // gentle bob catches the eye
     });
     physics.sliders.forEach((s, i) => {
       const mesh = this.sliderMeshes[i];

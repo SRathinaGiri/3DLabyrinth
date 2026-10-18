@@ -4,7 +4,7 @@
    Pure module (no THREE / DOM) so it can be unit-tested in Node.
    ========================================================================== */
 
-import { BOARD, PHYS, BALL_COUNT, surfacePhysics } from './config.js';
+import { BOARD, PHYS, BALL_COUNT, APPLE, surfacePhysics } from './config.js';
 import { hopTarget } from './maze.js';
 
 const R = BOARD.BALL_R;
@@ -34,6 +34,7 @@ export class PhysicsWorld {
     this.falls = 0;
     this.saves = 0;
     this.onFallSave = null; // (ball, hole) => true to spend a life and hop the ball past the hole
+    this.apples = (level.apples || []).map(a => ({ ...a, taken: false })); // app marks already-claimed ones taken
     this.updateSliders(0);
   }
 
@@ -95,6 +96,12 @@ export class PhysicsWorld {
 
   integrate(b, h, ax, az, events) {
     let fx = ax, fz = az;
+    for (const a of this.apples) {
+      if (!a.taken && Math.hypot(a.x - b.x, a.z - b.z) < APPLE.PICK_R) {
+        a.taken = true;
+        if (events.apple) events.apple(b, a);
+      }
+    }
     // Holes: rim pull, then drop once the centre is well over the edge
     for (const hole of this.holes) {
       const dx = hole.x - b.x, dz = hole.z - b.z, d = Math.hypot(dx, dz);

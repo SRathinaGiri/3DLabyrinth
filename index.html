@@ -9,7 +9,7 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg">
   <link rel="apple-touch-icon" href="./assets/favicon.svg">
-  <link rel="stylesheet" href="./css/styles.css?v=1.5.0">
+  <link rel="stylesheet" href="./css/styles.css?v=1.6.0">
   <!-- Three.js r128, bundled locally so the PWA works fully offline -->
   <script src="./js/lib/three.min.js"></script>
 </head>
@@ -25,7 +25,7 @@
           <circle cx="6" cy="12" r="1.8" fill="#ffc93c" stroke="none"/>
         </svg>
         <span>3D Labyrinth</span>
-        <span class="version-badge">v1.5.0</span>
+        <span class="version-badge">v1.6.0</span>
       </div>
       <div class="header-controls">
         <button class="icon-btn vr-btn" id="webxrBtn" style="display:none" title="Enter immersive VR (Meta Quest browser)">🥽 VR</button>
@@ -164,6 +164,7 @@
         <li>Get all <strong>3 balls</strong> into the <strong class="green">green goal</strong>. A ball in a <strong class="red">red-rimmed hole</strong> drops out and restarts at the blue ring.</li>
         <li>Levels 1–2 are untimed. From level 3 there is a clock; later levels add offset holes, corner holes on turns and orange <strong>sliding gates</strong> you must time.</li>
         <li><strong>❤ Lives</strong> (shared by all balls): +1 the first time you clear a level. A ball that drops into a hole spends a life and hops over it instead of restarting. If the clock runs out and you have a life for every ball still out, they are spent and the level is <em>rescued</em>.</li>
+        <li><strong>🍎 Bonus apple</strong> (level 4+): one per level, at the end of a side branch behind a guard: a sliding gate, an offset hole or a corner hole. Roll a ball onto it for <strong>+1 life</strong>. Each level's apple can be claimed once, ever; levels with an apple still waiting show 🍎 in the level list, so if you run out of lives, go back and collect them.</li>
         <li>★★★ = no falls, no lives used, fast · ★★ = up to 2 falls/saves · ★ = cleared or rescued.</li>
         <li><strong>Gyro</strong>: hold the phone however is comfortable — the countdown levels it. Tap <em>🎯 Re-level</em> any time. iPhone asks for motion permission on first play.</li>
         <li><strong>🧍 Inside view</strong> (🎥 button or <kbd>V</kbd>): a chase camera at ball level, with walls towering around you. Controls follow the camera, so <em>forward</em> rolls the ball the way you're looking. The camera turns when the ball commits to a new corridor. It plays with <strong>one ball</strong> (board views always use three); the minimap top-right shows the whole maze with <em>your forward direction up</em>; tap the 🗺 icon (or press <kbd>N</kbd>) to show or hide it. Follow the green light beam to the goal.</li>
@@ -188,6 +189,6 @@
     <button id="closeUpdateBtn" class="update-close" title="Dismiss">✖</button>
   </div>
 
-  <script type="module" src="./js/app.js?v=1.5.0"></script>
+  <script type="module" src="./js/app.js?v=1.6.0"></script>
 </body>
 </html>

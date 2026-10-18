@@ -74,6 +74,12 @@ class SoundEngine {
     this.tone(620, 0.55, { type: 'sine', vol: 0.22, slideTo: 70 });
   }
 
+  /** Bonus apple: bright sparkle arpeggio */
+  playApple() {
+    if (!this.ok()) return;
+    [784, 988, 1175, 1568].forEach((f, i) => this.tone(f, 0.18, { type: 'sine', vol: 0.15, at: i * 0.06 }));
+  }
+
   /** Life spent: quick rising heartbeat chirp */
   playSave() {
     if (!this.ok()) return;

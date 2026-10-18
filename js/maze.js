@@ -4,7 +4,7 @@
    Grid: col 0..cols-1 left->right (+x), row 0..rows-1 far->near (-z -> +z).
    ========================================================================== */
 
-import { BOARD, CORRIDOR_HALF, TIME, levelParams } from './config.js';
+import { BOARD, CORRIDOR_HALF, TIME, APPLE, levelParams } from './config.js';
 
 export const N = 1, E = 2, S = 4, W = 8;
 const DIRS = [
@@ -202,7 +202,11 @@ export function buildLevel(n) {
     placed++;
   }
 
-  // 4. Side holes: off-path cells, preferring those one step off the path (overshoot traps)
+  // 4. Bonus apple behind one guard hurdle in a side branch (before side holes, so its branch stays clear)
+  level.apples = [];
+  if (p.level >= APPLE.FROM_LEVEL) placeApple(level, rng, used, onPath, p);
+
+  // 5. Side holes: off-path cells, preferring those one step off the path (overshoot traps)
   const near = [], far = [];
   for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
     const k = r * cols + c;
@@ -249,4 +253,60 @@ export function hopTarget(level, hole) {
     if (!unsafe(c, r)) return cellCenter(level, c, r); // centre is safe even in path/turn-hole cells
   }
   return hole.kind !== 'side' ? cellCenter(level, hole.c, hole.r) : { ...level.startPos };
+}
+
+/**
+ * Put one bonus apple at a side-branch cell 2-4 steps off the solution path and guard the
+ * cell before it: a sliding gate or an offset hole on a straight, a corner hole on a bend.
+ */
+function placeApple(level, rng, used, onPath, p) {
+  const { cols, rows, cells, finish } = level;
+  const key = (c, r) => r * cols + c;
+  // Multi-source BFS from the path: depth into each branch + the next cell back toward the path
+  const depth = new Int32Array(cols * rows).fill(-1), toward = new Int32Array(cols * rows).fill(-1);
+  const q = [];
+  for (const k of onPath) { depth[k] = 0; q.push(k); }
+  for (let i = 0; i < q.length; i++) {
+    const k = q[i];
+    for (const nb of openNeighbours(cells, cols, rows, k % cols, (k / cols) | 0)) {
+      const nk = key(nb.c, nb.r);
+      if (depth[nk] < 0) { depth[nk] = depth[k] + 1; toward[nk] = k; q.push(nk); }
+    }
+  }
+  const holeAt = k => level.holes.some(h => key(h.c, h.r) === k);
+  const rootOf = k => { while (depth[k] > 0) k = toward[k]; return k; };
+  // Exactly one guard: every other cell between the apple and the path must be free of hurdles
+  const branchClear = k => { for (let c = k; depth[c] > 0; c = toward[c]) if (used.has(c) || holeAt(c)) return false; return true; };
+  // The junction where the branch leaves the path must be hazard-free too: its hurdles were
+  // oriented for the main route and could catch a ball turning into the branch.
+  const ok = k => depth[k] >= APPLE.MIN_DEPTH && branchClear(k) && !used.has(rootOf(k)) && !holeAt(rootOf(k));
+  let cands = [];
+  for (let k = 0; k < cols * rows; k++) if (ok(k) && depth[k] <= APPLE.MAX_DEPTH) cands.push(k);
+  if (!cands.length) for (let k = 0; k < cols * rows; k++) if (ok(k)) cands.push(k);
+  if (!cands.length) return;
+  const k = cands[Math.floor(rng() * cands.length)];
+  const g = toward[k], before = toward[g];
+  const ac = { c: k % cols, r: (k / cols) | 0 }, gc = { c: g % cols, r: (g / cols) | 0 }, bc = { c: before % cols, r: (before / cols) | 0 };
+  const inDir = { dc: gc.c - bc.c, dr: gc.r - bc.r }, outDir = { dc: ac.c - gc.c, dr: ac.r - gc.r };
+  const ctr = cellCenter(level, gc.c, gc.r);
+  let guard;
+  if (inDir.dc === outDir.dc && inDir.dr === outDir.dr) {
+    const travel = inDir.dc !== 0 ? 'x' : 'z';
+    if (p.level >= 4 && rng() < 0.5) {
+      level.sliders.push({
+        c: gc.c, r: gc.r, x: ctr.x, z: ctr.z, moveAxis: travel === 'z' ? 'x' : 'z',
+        amp: CORRIDOR_HALF - BOARD.SLIDER_ACROSS / 2, omega: p.sliderSpeed * (0.85 + rng() * 0.3), phase: rng() * Math.PI * 2
+      });
+      guard = 'gate';
+    } else {
+      const side = rng() < 0.5 ? -1 : 1;
+      level.holes.push({ c: gc.c, r: gc.r, x: ctr.x + (travel === 'z' ? side * 0.45 : 0), z: ctr.z + (travel === 'x' ? side * 0.45 : 0), r_: BOARD.HOLE_R, kind: 'guard' });
+      guard = 'hole';
+    }
+  } else {
+    level.holes.push({ c: gc.c, r: gc.r, x: ctr.x + (inDir.dc - outDir.dc) * 0.42, z: ctr.z + (inDir.dr - outDir.dr) * 0.42, r_: BOARD.HOLE_R, kind: 'guard' });
+    guard = 'corner';
+  }
+  for (let c = k; depth[c] > 0; c = toward[c]) used.add(c); // reserve the whole branch: one guard only
+  level.apples.push({ c: ac.c, r: ac.r, ...cellCenter(level, ac.c, ac.r), guard, depth: depth[k] });
 }
