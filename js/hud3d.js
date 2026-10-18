@@ -145,25 +145,18 @@ export class HUD3D {
     return Math.abs(ndcX - b.x) <= b.hw * pad && Math.abs(ndcY - b.y) <= b.hh * pad;
   }
 
-  /** Redraw ~12x/s: maze rotated so the camera's forward direction points up, ball at its true spot. */
-  updateMap(ball, dir, dt, apples = []) {
+  /** Redraw ~12x/s. Fixed north-up map (a rotating map disorients); an arrow shows the heading. */
+  updateMap(ball, yaw, dt, apples = []) {
     if (!this.map.mesh.visible || !this.mapLayer) return;
     this.mapTimer -= dt;
     if (this.mapTimer > 0) return;
     this.mapTimer = 1 / 12;
-    const g = this.map.ctx, S = MAP_PX, c = S / 2, { scale, ox, oz, W, H } = this.mapXf;
+    const g = this.map.ctx, S = MAP_PX, { scale, ox, oz, W, H } = this.mapXf;
     g.clearRect(0, 0, S, S);
     g.fillStyle = 'rgba(2,6,23,0.72)';
     roundRect(g, 4, 4, S - 8, S - 8, 40); g.fill();
     g.strokeStyle = 'rgba(0,240,255,0.55)'; g.lineWidth = 5; g.stroke();
-    g.save();
-    roundRect(g, 10, 10, S - 20, S - 20, 34); g.clip();
-    // Heading-up: rotate so dir (board x,z) maps to screen up. 90-degree steps keep the square map inside the panel.
-    g.translate(c, c);
-    g.rotate(-Math.PI / 2 - Math.atan2(dir[1], dir[0]));
-    g.translate(-c, -c);
     g.drawImage(this.mapLayer, 0, 0);
-    const bx = ox + (ball.x + W / 2) * scale, bz = oz + (ball.z + H / 2) * scale;
     for (const a of apples) {
       if (a.taken) continue;
       const ax = ox + (a.x + W / 2) * scale, az = oz + (a.z + H / 2) * scale;
@@ -173,16 +166,23 @@ export class HUD3D {
       g.fillStyle = '#3ccf4e';
       g.beginPath(); g.ellipse(ax + 7, az - 18, 9, 4.5, -0.5, 0, Math.PI * 2); g.fill();
     }
-    // View cone
-    const ang = Math.atan2(dir[1], dir[0]), len = 95;
-    const grad = g.createRadialGradient(bx, bz, 4, bx, bz, len);
-    grad.addColorStop(0, 'rgba(255,201,60,0.55)'); grad.addColorStop(1, 'rgba(255,201,60,0)');
-    g.fillStyle = grad;
-    g.beginPath(); g.moveTo(bx, bz); g.arc(bx, bz, len, ang - 0.6, ang + 0.6); g.closePath(); g.fill();
+    const bx = ox + (ball.x + W / 2) * scale, bz = oz + (ball.z + H / 2) * scale;
+    const r = Math.max(11, BOARD.BALL_R * scale * 1.8);
+    // Heading arrow (board x -> canvas x, board z -> canvas y)
+    const hx = Math.sin(yaw), hz = -Math.cos(yaw), px = -hz, pz = hx;
+    const tip = r + 48, base = r + 4, half = 18;
+    g.fillStyle = '#ffc93c'; g.strokeStyle = '#020617'; g.lineWidth = 3;
+    g.beginPath();
+    g.moveTo(bx + hx * tip, bz + hz * tip);
+    g.lineTo(bx + hx * base + px * half, bz + hz * base + pz * half);
+    g.lineTo(bx + hx * base - px * half, bz + hz * base - pz * half);
+    g.closePath(); g.fill(); g.stroke();
     // Ball
     g.fillStyle = '#ffc93c'; g.strokeStyle = '#ffffff'; g.lineWidth = 3;
-    g.beginPath(); g.arc(bx, bz, Math.max(11, BOARD.BALL_R * scale * 1.8), 0, Math.PI * 2); g.fill(); g.stroke();
-    g.restore();
+    g.beginPath(); g.arc(bx, bz, r, 0, Math.PI * 2); g.fill(); g.stroke();
+    // North marker so the fixed orientation is obvious
+    g.fillStyle = 'rgba(226,232,240,0.85)'; g.font = '700 30px system-ui, sans-serif';
+    g.textAlign = 'center'; g.textBaseline = 'top'; g.fillText('N ▲', S / 2, 12);
     this.map.tex.needsUpdate = true;
   }
 

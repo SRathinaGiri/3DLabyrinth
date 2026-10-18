@@ -40,7 +40,7 @@ class GameApp {
     this.focusOffset = 0;
     this.progress = loadProgress();
     this.look = { ...DEFAULT_LOOK }; // board surface + ball type, chosen in the menu
-    this.inside = { dir: [0, -1], yaw: 0, pend: null, pendT: 0, back: INSIDE_VIEW.CAM_BACK };
+    this.inside = { yaw: 0, targetYaw: 0, revT: 0, vx: 0, vz: 0, back: INSIDE_VIEW.CAM_BACK };
     this.mapOn = true; // Inside-view minimap, toggled by the 🗺 icon or N
 
     this.scene = new THREE.Scene();
@@ -91,9 +91,9 @@ class GameApp {
     this.board.build(this.level, this.look, this.physics.balls.length, this.physics.apples);
     // Inside camera starts facing down the first corridor of the solution path
     const [p0, p1] = this.level.path;
-    this.inside.dir = p1 ? [Math.sign(p1.c - p0.c), Math.sign(p1.r - p0.r)] : [0, -1];
-    this.inside.yaw = Math.atan2(this.inside.dir[0], -this.inside.dir[1]);
-    this.inside.pend = null;
+    const d0 = p1 ? [Math.sign(p1.c - p0.c), Math.sign(p1.r - p0.r)] : [0, -1];
+    this.inside.yaw = this.inside.targetYaw = Math.atan2(d0[0], -d0[1]);
+    this.inside.revT = 0; this.inside.vx = this.inside.vz = 0;
     this.hud.setMap(this.level);
     this.audio.setMaterials(this.look.board, this.look.ball);
     this.tilt.x = this.tilt.z = 0;
@@ -358,7 +358,7 @@ class GameApp {
     let ix = input.x, iy = input.y;
     if (this.viewMode === 'INSIDE') {
       // Camera-relative: "forward" rolls the ball the way the camera faces
-      const [fx, fz] = this.inside.dir;
+      const fx = Math.sin(this.inside.yaw), fz = -Math.cos(this.inside.yaw);
       const ax = ix * -fz + iy * fx, az = ix * fx + iy * fz;
       ix = ax; iy = -az;
     }
@@ -477,25 +477,22 @@ class GameApp {
     const r = this.renderer, V = INSIDE_VIEW, ins = this.inside, balls = this.physics.balls;
     const b = balls[0];
 
-    // Turn the camera only once the ball has committed to a new corridor direction.
-    // A 180° turn waits until the player stops pushing "back", else camera-relative
-    // controls would ping-pong (back -> camera flips -> back now means forward).
-    const sp = Math.hypot(b.vx, b.vz);
-    if (b.state === 'roll' && sp > 1.0 && this.state === 'PLAYING') {
-      const cand = Math.abs(b.vx) > Math.abs(b.vz) ? [Math.sign(b.vx), 0] : [0, Math.sign(b.vz)];
-      const same = cand[0] === ins.dir[0] && cand[1] === ins.dir[1];
-      const reverse = cand[0] === -ins.dir[0] && cand[1] === -ins.dir[1];
-      const holdingBack = this.controls.tilt.y < -0.3;
-      if (same || (reverse && holdingBack)) ins.pend = null;
-      else if (ins.pend && ins.pend[0] === cand[0] && ins.pend[1] === cand[1]) {
-        ins.pendT += dt;
-        if (ins.pendT > (reverse ? V.TURN_COMMIT * 3 : V.TURN_COMMIT)) { ins.dir = cand; ins.pend = null; }
-      } else { ins.pend = cand; ins.pendT = 0; }
+    // Car-like heading: follow where the ball is actually rolling (smoothed), with a capped turn
+    // rate that scales with speed. Rolling backwards (> REVERSE_ANGLE off) holds the camera, so
+    // camera-relative "back" can't ping-pong; a slow U-turn follows only if you stop pushing back.
+    const wrap = a => Math.atan2(Math.sin(a), Math.cos(a));
+    const lp = Math.min(1, 5 * dt); // low-pass the velocity: wall bounces shouldn't jerk the view
+    ins.vx += (b.vx - ins.vx) * lp; ins.vz += (b.vz - ins.vz) * lp;
+    const sp = Math.hypot(ins.vx, ins.vz);
+    if (b.state === 'roll' && sp > V.FOLLOW_MIN_SPEED && this.state === 'PLAYING') {
+      const vYaw = Math.atan2(ins.vx, -ins.vz);
+      if (Math.abs(wrap(vYaw - ins.yaw)) < V.REVERSE_ANGLE) { ins.targetYaw = vYaw; ins.revT = 0; }
+      else if (this.controls.tilt.y > -0.2) { ins.revT += dt; if (ins.revT > V.UTURN_DELAY) ins.targetYaw = vYaw; }
+      else ins.revT = 0;
     }
-    const targetYaw = Math.atan2(ins.dir[0], -ins.dir[1]);
-    let dy = targetYaw - ins.yaw;
-    dy = Math.atan2(Math.sin(dy), Math.cos(dy)); // shortest way round
-    ins.yaw += dy * Math.min(1, V.TURN_RATE * dt);
+    const gap = wrap(ins.targetYaw - ins.yaw);
+    const maxStep = V.MAX_TURN * Math.min(1, Math.max(0.25, sp / V.FULL_TURN_SPEED)) * dt;
+    ins.yaw = wrap(ins.yaw + Math.max(-maxStep, Math.min(maxStep, gap * V.TURN_EASE * dt)));
     const fx = Math.sin(ins.yaw), fz = -Math.cos(ins.yaw);
 
     // Pull the camera in if a wall sits between it and the ball
@@ -519,7 +516,7 @@ class GameApp {
     r.cameraGroup.position.copy(eye);
     r.cameraGroup.quaternion.setFromRotationMatrix(m);
     this.board.setHeadlamp(eye, look);
-    this.hud.updateMap(b, ins.dir, dt, this.physics.apples);
+    this.hud.updateMap(b, ins.yaw, dt, this.physics.apples);
 
     const dist = Math.hypot(ins.back, V.CAM_HEIGHT - BOARD.BALL_R);
     this.cam.dist = dist;

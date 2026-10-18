@@ -1,5 +1,5 @@
 // Service Worker for 3D Labyrinth PWA (network-first, offline fallback; pattern from 3D Tunnel Rush)
-const CACHE_VERSION = 'labyrinth-v1.6.2';
+const CACHE_VERSION = 'labyrinth-v1.7.0';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -17,7 +17,12 @@ const ASSETS_TO_CACHE = [
   './js/ui.js',
   './js/materials.js',
   './manifest.json',
-  './assets/favicon.svg'
+  './assets/favicon.svg',
+  './assets/icon-192.png',
+  './assets/icon-512.png',
+  './assets/icon-maskable-192.png',
+  './assets/icon-maskable-512.png',
+  './assets/apple-touch-icon.png'
 ];
 
 self.addEventListener('install', event => {

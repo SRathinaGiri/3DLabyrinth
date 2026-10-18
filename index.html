@@ -8,8 +8,11 @@
   <title>3D Labyrinth</title>
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg">
-  <link rel="apple-touch-icon" href="./assets/favicon.svg">
-  <link rel="stylesheet" href="./css/styles.css?v=1.6.2">
+  <link rel="apple-touch-icon" href="./assets/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Labyrinth3D">
+  <link rel="stylesheet" href="./css/styles.css?v=1.7.0">
   <!-- Three.js r128, bundled locally so the PWA works fully offline -->
   <script src="./js/lib/three.min.js"></script>
 </head>
@@ -25,9 +28,10 @@
           <circle cx="6" cy="12" r="1.8" fill="#ffc93c" stroke="none"/>
         </svg>
         <span>3D Labyrinth</span>
-        <span class="version-badge">v1.6.2</span>
+        <span class="version-badge">v1.7.0</span>
       </div>
       <div class="header-controls">
+        <button class="icon-btn install-btn" id="installBtn" style="display:none" title="Install as an app on this device">📲 Install app</button>
         <button class="icon-btn vr-btn" id="webxrBtn" style="display:none" title="Enter immersive VR (Meta Quest browser)">🥽 VR</button>
         <button class="icon-btn" id="audioToggle" title="Toggle sound (M)">🔊 Sound</button>
         <button class="icon-btn" id="helpBtn" title="How to play & 3D viewing guide">❓ Guide</button>
@@ -167,7 +171,7 @@
         <li><strong>🍎 Bonus apple</strong> (level 4+): one per level, at the end of a side branch behind a guard: a sliding gate, an offset hole or a corner hole. Roll a ball onto it for <strong>+1 life</strong>. Each level's apple can be claimed once, ever; levels with an apple still waiting show 🍎 in the level list, so if you run out of lives, go back and collect them.</li>
         <li>★★★ = no falls, no lives used, fast · ★★ = up to 2 falls/saves · ★ = cleared or rescued.</li>
         <li><strong>Gyro</strong>: hold the phone however is comfortable — the countdown levels it. Tap <em>🎯 Re-level</em> any time. iPhone asks for motion permission on first play.</li>
-        <li><strong>🧍 Inside view</strong> (🎥 button or <kbd>V</kbd>): a chase camera at ball level, with walls towering around you. Controls follow the camera, so <em>forward</em> rolls the ball the way you're looking. The camera turns when the ball commits to a new corridor. It plays with <strong>one ball</strong> (board views always use three); the minimap top-right shows the whole maze with <em>your forward direction up</em>; tap the 🗺 icon (or press <kbd>N</kbd>) to show or hide it. Follow the green light beam to the goal.</li>
+        <li><strong>🧍 Inside view</strong> (🎥 button or <kbd>V</kbd>): a chase camera at ball level, with walls towering around you. Controls follow the camera, so <em>forward</em> rolls the ball the way you're looking. The camera turns smoothly, like a car, toward the way the ball is rolling; reversing doesn't spin it round. It plays with <strong>one ball</strong> (board views always use three); the minimap top-right shows the whole maze (north up) with an arrow for the way you're heading; tap the 🗺 icon (or press <kbd>N</kbd>) to show or hide it. Follow the green light beam to the goal.</li>
         <li><strong>Gesture</strong>: touch and drag anywhere on the board — the drag distance is the tilt.</li>
       </ul>
       <h3>3D viewing modes</h3>
@@ -183,12 +187,34 @@
     </div>
   </div>
 
+  <!-- Install offer (Android/Chrome: system prompt; iPhone/iPad: Add to Home Screen steps) -->
+  <div class="banner-stack">
+  <div id="installBanner" class="update-banner install-banner hidden">
+    <span>📲 Play full-screen and offline: install 3D Labyrinth as an app.</span>
+    <button id="installBannerBtn" class="update-btn">Install</button>
+    <button id="closeInstallBtn" class="update-close" title="Not now">✖</button>
+  </div>
+
   <div id="updateBanner" class="update-banner hidden">
     <span>🚀 A new version is ready.</span>
     <button id="installUpdateBtn" class="update-btn">🔄 Update</button>
     <button id="closeUpdateBtn" class="update-close" title="Dismiss">✖</button>
   </div>
+  </div>
 
-  <script type="module" src="./js/app.js?v=1.6.2"></script>
+  <div class="drawer-overlay hidden" id="iosInstallHelp">
+    <div class="drawer">
+      <h3>📲 Install on iPhone / iPad</h3>
+      <ol class="steps">
+        <li>Open this page in <strong>Safari</strong>.</li>
+        <li>Tap the <strong>Share</strong> button (square with an arrow ↑).</li>
+        <li>Choose <strong>Add to Home Screen</strong>, then <strong>Add</strong>.</li>
+      </ol>
+      <p class="hint">The game then opens full-screen from its own icon and works offline.</p>
+      <button class="action-btn" id="closeIosHelpBtn">Got it</button>
+    </div>
+  </div>
+
+  <script type="module" src="./js/app.js?v=1.7.0"></script>
 </body>
 </html>

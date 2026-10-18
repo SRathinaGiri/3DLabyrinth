@@ -24,6 +24,50 @@ export class UIManager {
     this.bindControlSettings();
     this.buildLookPickers();
     this.loadSettings();
+    this.setupInstall();
+  }
+
+  /* ---------- Install as an app ---------- */
+  /**
+   * Chrome/Edge/Android fire beforeinstallprompt once the PWA is installable: keep it and offer
+   * our own button + banner. iOS never fires it, so there we show the Add-to-Home-Screen steps.
+   */
+  setupInstall() {
+    const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+    if (standalone) return; // already running as the installed app
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    let deferred = null;
+    const dismissedKey = '3d_labyrinth_install_dismissed';
+    const show = () => {
+      if ($('installBtn')) $('installBtn').style.display = 'inline-flex';
+      let dismissed = false;
+      try { dismissed = localStorage.getItem(dismissedKey) === '1'; } catch (_) { /* storage blocked */ }
+      if (!dismissed) $('installBanner').classList.remove('hidden');
+    };
+    const hide = () => {
+      if ($('installBtn')) $('installBtn').style.display = 'none';
+      $('installBanner').classList.add('hidden');
+    };
+    const install = async () => {
+      if (deferred) {
+        deferred.prompt();
+        const { outcome } = await deferred.userChoice;
+        deferred = null;
+        if (outcome === 'accepted') hide();
+      } else if (isIOS) {
+        $('iosInstallHelp').classList.remove('hidden');
+      }
+    };
+    window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferred = e; show(); });
+    window.addEventListener('appinstalled', hide);
+    this.on('installBtn', install);
+    this.on('installBannerBtn', install);
+    this.on('closeInstallBtn', () => {
+      $('installBanner').classList.add('hidden');
+      try { localStorage.setItem(dismissedKey, '1'); } catch (_) { /* storage blocked */ }
+    });
+    this.on('closeIosHelpBtn', () => $('iosInstallHelp').classList.add('hidden'));
+    if (isIOS) show();
   }
 
   on(id, fn) {

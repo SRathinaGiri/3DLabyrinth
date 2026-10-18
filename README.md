@@ -41,9 +41,9 @@ Board and ball values multiply together (grip → rolling resistance, bounce →
 ## Inside view (1 ball) & minimap
 - **🧍 Inside view** (🎥 button cycles Auto → Whole board → Follow → Inside, or press <kbd>V</kbd>): a chase camera at ball height. Walls are drawn **3.2× taller** in this view only, so the corridors tower around you; the physics doesn't change.
 - **Ball count follows the view:** Inside = **1 ball**, every board view = **3 balls**. Crossing that line mid-level restarts the level, after a 3D "Restart level?" confirmation unless you're in the first 3 s. Esc or "Keep playing" reverts the view.
-- **Controls follow the camera:** forward rolls the ball the way you're looking. The camera turns 90° once the ball has travelled a new corridor for 0.3 s. A 180° turn waits until you stop pushing "back"; otherwise camera-relative controls would ping-pong.
+- **Car-like camera:** forward rolls the ball the way you're looking. The camera eases toward the direction the ball is actually rolling (velocity low-passed so wall bounces don't jerk it). Its turn rate is capped at about 86°/s and scales down with ball speed, so it never spins on the spot. Holding left/right therefore steers like a car. Rolling backwards (more than 120° off) holds the camera, and a slow U-turn follows only after 1.2 s of reversing without pushing "back" (`INSIDE_VIEW` in `config.js`).
 - **Camera details:** the camera pulls in and booms up when a wall is behind it. A headlamp lights the corridor, and a green light beam over the goal shows the way.
-- **Minimap** (Inside view only): a 3D panel at screen depth in the top-right of both eyes. It shows the whole maze **heading-up** (rotated in 90° steps so your forward direction is always up), with your ball and view cone, holes, gates, the start ring and the goal.
+- **Minimap** (Inside view only): a 3D panel at screen depth in the top-right of both eyes. It shows the whole maze **fixed north-up** (marked N ▲), with your ball and an **arrow for the heading**, plus holes, gates, the start ring, apples and the goal.
 - **🗺 Map toggle:** a small 3D icon above the minimap. Tap it in either eye's half (or press <kbd>N</kbd>) to show or hide the map. The tap never tilts the board, and the choice is remembered.
 
 ## Difficulty curve (`js/config.js`)
@@ -58,6 +58,11 @@ Board and ball values multiply together (grip → rolling resistance, bounce →
 | All | The board grows to 16×16 and the maximum tilt rises from 9.5° to 16° |
 
 Stars: ★★★ for no falls and finishing within 66% of the time, ★★ for up to 2 falls, ★ for clearing the level.
+
+## Install as an app
+- **Android / Chrome / Edge:** once the browser considers the page installable, a **📲 Install app** button appears in the menu header and a one-time banner offers it. Both open the system install prompt.
+- **iPhone / iPad:** Safari has no install prompt, so the button shows the *Share → Add to Home Screen* steps.
+- **What makes it installable:** the manifest has 192 px and 512 px PNG icons (normal + maskable, in `assets/`), `id`/`scope`/`start_url`, `display: standalone`, and a service worker with a fetch handler. `tests/version.test.mjs` checks the icons exist at the right sizes and are cached. It must be served over HTTPS (GitHub Pages is fine).
 
 ## Run locally
 ES modules need a web server:

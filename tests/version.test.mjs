@@ -25,3 +25,19 @@ test('service worker pre-caches every JS module', () => {
     assert.ok(sw.includes(`'./js/${m}.js'`), `sw.js does not cache js/${m}.js`);
   }
 });
+
+test('PWA is installable: PNG 192/512 icons (any + maskable) exist, are listed and pre-cached', () => {
+  const m = JSON.parse(read('manifest.json'));
+  assert.equal(m.display, 'standalone');
+  assert.ok(m.start_url && m.scope && m.id, 'start_url, scope and id required');
+  const sw = read('sw.js');
+  for (const purpose of ['any', 'maskable']) {
+    for (const size of ['192x192', '512x512']) {
+      const icon = m.icons.find(i => i.type === 'image/png' && i.sizes === size && i.purpose === purpose);
+      assert.ok(icon, `manifest lacks a ${size} ${purpose} PNG icon`);
+      const png = readFileSync(new URL(`../${icon.src.replace('./', '')}`, import.meta.url));
+      assert.equal(png.readUInt32BE(16), +size.split('x')[0], `${icon.src} is not ${size}`);
+      assert.ok(sw.includes(`'${icon.src}'`), `sw.js does not cache ${icon.src}`);
+    }
+  }
+});

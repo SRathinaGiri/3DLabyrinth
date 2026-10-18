@@ -203,3 +203,15 @@ kbd { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2
 
 .lives-info { color: #ff7a9a; font-weight: 700; font-size: 0.9rem; }
 .level-btn .ap { font-size: 0.7rem; margin-left: 2px; vertical-align: super; }
+
+/* ---------------- Install ---------------- */
+.install-btn { background: linear-gradient(135deg, #22c55e, #00f0ff); color: #020617; border-color: #34ff9a; font-weight: 800; }
+.install-banner { bottom: 76px; border-color: #34ff9a; box-shadow: 0 0 20px rgba(52,255,154,0.3); flex-wrap: wrap; justify-content: center; max-width: calc(100vw - 24px); }
+.install-banner .update-btn { background: #34ff9a; }
+.steps { padding-left: 22px; line-height: 1.8; align-self: stretch; }
+
+/* Banners stack bottom-centre and use the full phone width instead of squeezing their text */
+.banner-stack { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 60; display: flex; flex-direction: column; gap: 8px; width: min(560px, calc(100vw - 24px)); pointer-events: none; }
+.banner-stack .update-banner { position: static; transform: none; width: 100%; pointer-events: auto; }
+.banner-stack .update-banner span { flex: 1; min-width: 0; }
+.banner-stack .install-banner { bottom: auto; }

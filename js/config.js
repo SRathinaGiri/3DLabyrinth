@@ -4,7 +4,7 @@
    Pure module (no THREE / DOM) so it can be unit-tested in Node.
    ========================================================================== */
 
-export const VERSION = '1.6.2';
+export const VERSION = '1.7.0';
 
 // Board geometry (world units; one maze cell = CELL x CELL)
 export const BOARD = {
@@ -106,8 +106,14 @@ export const INSIDE_VIEW = {
   LOOK_AHEAD: 2.6,
   FOV: 72,
   WALL_SCALE: 3.2,    // visual wall height multiplier, so corridors tower over the camera
-  TURN_COMMIT: 0.3,   // seconds the ball must travel a new corridor direction before the camera turns
-  TURN_RATE: 5        // camera yaw smoothing (1/s)
+  // Car-like turning: the camera eases toward the ball's actual rolling direction,
+  // never faster than MAX_TURN, and slower still when the ball is slow (no spinning on the spot).
+  MAX_TURN: 1.5,          // rad/s (~86°/s) at full speed
+  TURN_EASE: 2.2,         // how eagerly it closes the gap (1/s)
+  FULL_TURN_SPEED: 3.0,   // ball speed at which the full turn rate is allowed
+  FOLLOW_MIN_SPEED: 0.8,  // below this the heading is too noisy to follow
+  REVERSE_ANGLE: 2.1,     // rad (~120°): rolling further back than this = reversing, camera holds
+  UTURN_DELAY: 1.2        // s of reversing (while not pushing "back") before a slow U-turn
 };
 export const BALL_COLORS = [0xffc93c, 0x00f0ff, 0xff4fa3];
 

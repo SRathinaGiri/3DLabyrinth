@@ -1,19 +1,21 @@
 {
+  "id": "./",
   "name": "3D Labyrinth",
   "short_name": "Labyrinth3D",
   "description": "Tilt-maze game: guide three balls home. 2D, Parallel, Cross-eye, Anaglyph, Smart-glasses and VR stereo modes.",
-  "version": "1.6.2",
+  "version": "1.7.0",
   "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#020617",
   "theme_color": "#020617",
+  "categories": ["games"],
   "icons": [
-    {
-      "src": "./assets/favicon.svg",
-      "sizes": "192x192 512x512",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
-    }
+    { "src": "./assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./assets/icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "./assets/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "./assets/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
   ]
 }
