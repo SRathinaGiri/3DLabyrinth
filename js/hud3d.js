@@ -55,6 +55,11 @@ export class HUD3D {
     this.bannerTimer = 0;
   }
 
+  /** Move every HUD panel under another parent (VR: a floating screen anchored in the room). */
+  attachTo(parent) {
+    for (const p of [this.bar, this.banner, this.dialog, this.map, this.mapBtn]) parent.add(p.mesh);
+  }
+
   /** Fit panels to the eye frustum at the given distance (the focal plane). */
   layout(distance, fovDeg, aspect) {
     this.distance = distance;

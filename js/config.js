@@ -4,7 +4,7 @@
    Pure module (no THREE / DOM) so it can be unit-tested in Node.
    ========================================================================== */
 
-export const VERSION = '1.8.3';
+export const VERSION = '1.9.0';
 
 // Board geometry (world units; one maze cell = CELL x CELL)
 export const BOARD = {
@@ -96,6 +96,14 @@ export function timePace(surf) {
   const ratio = surf.damping / PHYS.DAMPING;
   return Math.max(1.0, Math.min(1.4, Math.pow(ratio, 0.3) / surf.accel));
 }
+
+// WebXR (Quest): the board is placed relative to the player's head when VR starts (and on Recenter),
+// so it works seated or standing. Sizes in metres.
+export const VR = {
+  TABLE: { SIZE: 0.9, BELOW_EYES: 0.45, NEAR_EDGE: 0.25 },  // board you look down onto, like a real tabletop labyrinth
+  FLOOR: { SIZE: 3.2, NEAR_EDGE: 0.4, STAND_EYE: 1.5 },     // giant maze on the floor at your feet
+  HUD: { DIST: 1.1, FOV: 30, ASPECT: 1.6 }                  // floating screen: score bar just above eye level, panels straight ahead
+};
 
 export const BALL_COUNT = 3;        // every board view (Auto / Whole board / Follow)
 export const INSIDE_BALL_COUNT = 1; // the Inside camera follows a single ball: you can't steer what you can't see

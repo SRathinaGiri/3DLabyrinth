@@ -219,10 +219,11 @@ export class ControlsHandler {
     }
   }
 
+  /** Quest controllers: thumbstick tilts; A/X confirms; B/Y pauses (the system menu button is not exposed to pages). */
   pollXR(xrSession) {
     this.xrTilt.x = this.xrTilt.y = 0;
-    if (!xrSession) return false;
-    let confirm = false;
+    if (!xrSession) return { confirm: false, pause: false };
+    let confirm = false, pause = false;
     for (const src of xrSession.inputSources) {
       const gp = src.gamepad;
       if (!gp) continue;
@@ -230,8 +231,9 @@ export class ControlsHandler {
       const [x, y] = (ax.length >= 4 && Math.hypot(ax[2], ax[3]) > 0.15) ? [ax[2], ax[3]] : [ax[0] || 0, ax[1] || 0];
       if (Math.hypot(x, y) > 0.15) { this.xrTilt.x = clamp1(x); this.xrTilt.y = clamp1(-y); }
       if (gp.buttons[4] && gp.buttons[4].pressed) confirm = true; // A / X
+      if (gp.buttons[5] && gp.buttons[5].pressed) pause = true;   // B / Y
     }
-    return confirm;
+    return { confirm, pause };
   }
 
   /* ---------- Combine ---------- */

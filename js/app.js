@@ -2,7 +2,7 @@
    3D LABYRINTH - MAIN APPLICATION (game loop, camera, level lifecycle)
    ========================================================================== */
 
-import { VERSION, BOARD, PHYS, LIVES, DEFAULT_LOOK, BALL_COUNT, INSIDE_BALL_COUNT, INSIDE_VIEW, surfacePhysics, timePace } from './config.js';
+import { VERSION, BOARD, PHYS, LIVES, DEFAULT_LOOK, BALL_COUNT, INSIDE_BALL_COUNT, INSIDE_VIEW, VR, surfacePhysics, timePace } from './config.js';
 import { buildLevel } from './maze.js';
 import { PhysicsWorld } from './physics.js';
 import { StereoRenderEngine } from './renderer.js';
@@ -42,11 +42,14 @@ class GameApp {
     this.look = { ...DEFAULT_LOOK }; // board surface + ball type, chosen in the menu
     this.inside = { yaw: 0, targetYaw: 0, revT: 0, vx: 0, vz: 0, back: INSIDE_VIEW.CAM_BACK };
     this.mapOn = true; // Inside-view minimap, toggled by the 🗺 icon or N
+    this.vr = { mode: 'table', pending: false, frames: 0, head: null, fwd: null, yaw: 0 };
+    this.vrHud = new THREE.Group(); // floating HUD screen in VR (anchored in the room, not glued to the face)
 
     this.scene = new THREE.Scene();
     const canvas = document.getElementById('gameCanvas');
     this.renderer = new StereoRenderEngine(canvas);
     this.scene.add(this.renderer.cameraGroup);
+    this.scene.add(this.vrHud);
     this.board = new BoardView(this.scene, this.renderer.renderer);
     this.controls = new ControlsHandler();
     this.hud = new HUD3D(this.renderer.mainCamera);
@@ -96,6 +99,7 @@ class GameApp {
     this.inside.revT = 0; this.inside.vx = this.inside.vz = 0;
     this.hud.setMap(this.level);
     this.audio.setMaterials(this.look.board, this.look.ball);
+    if (this.inVR) this.applyVR();
     this.tilt.x = this.tilt.z = 0;
     this.elapsed = 0;
     this.lastTick = -1;
@@ -149,6 +153,15 @@ class GameApp {
       this.controls.resetManual();
       this.audio.stopMusic();
       this.controls.releaseWakeLock();
+      if (this.inVR) {
+        this.openDialog({
+          title: 'PAUSED', color: '#00f0ff',
+          lines: [`Level ${this.level.n} · ❤ ${this.progress.lives} ${this.progress.lives === 1 ? 'life' : 'lives'}`, 'Thumbstick to choose · trigger or A to select'],
+          buttons: [{ id: 'resume', label: '▶ Resume' }, { id: 'restart', label: '↻ Restart' }, { id: 'recenter', label: '🎯 Recenter' },
+            { id: 'vrsize', label: this.vr.mode === 'table' ? '🟫 Floor' : '🪑 Table' }, { id: 'exitvr', label: '⏏ Exit VR' }]
+        });
+        return;
+      }
       this.openDialog({
         title: 'PAUSED', color: '#00f0ff',
         lines: [`Level ${this.level.n} · ❤ ${this.progress.lives} ${this.progress.lives === 1 ? 'life' : 'lives'}`, this.orientStatus].filter(Boolean),
@@ -184,6 +197,7 @@ class GameApp {
    * so a failure is reported (countdown + pause panel) instead of failing silently.
    */
   lockOrientation() {
+    if (this.inVR) { this.orientStatus = ''; this.orientProblem = false; return; } // the headset handles orientation
     const so = screen.orientation;
     if (!matchMedia('(pointer: coarse)').matches) { this.orientStatus = ''; return; } // desktop: nothing to lock
     if (!so || typeof so.lock !== 'function') { this.orientFailed('not supported by this browser'); return; }
@@ -262,7 +276,7 @@ class GameApp {
       color: rescuedWith ? '#ffc93c' : '#34ff9a',
       big: '★'.repeat(stars) + '☆'.repeat(3 - stars),
       lines,
-      buttons: [{ id: 'next', label: 'Next ▶' }, { id: 'replay', label: '↻ Replay' }, { id: 'menu', label: '☰ Menu' }]
+      buttons: [{ id: 'next', label: 'Next ▶' }, { id: 'replay', label: '↻ Replay' }, { id: 'menu', label: this.inVR ? '⏏ Exit VR' : '☰ Menu' }]
     });
   }
 
@@ -275,7 +289,7 @@ class GameApp {
     this.openDialog({
       title: "TIME'S UP", color: '#ff3b5c',
       lines: [`${this.physics.captured}/${this.physics.balls.length} balls home`, `Rescue needs ${out} ❤ · you have ${this.progress.lives}`],
-      buttons: [{ id: 'retry', label: '↻ Try again' }, { id: 'menu', label: '☰ Menu' }]
+      buttons: [{ id: 'retry', label: '↻ Try again' }, { id: 'menu', label: this.inVR ? '⏏ Exit VR' : '☰ Menu' }]
     });
   }
 
@@ -322,7 +336,10 @@ class GameApp {
       case 'resume': this.togglePause(); break;
       case 'restart': case 'retry': case 'replay': this.startLevel(this.level.n); break;
       case 'next': this.startLevel(this.level.n + 1); break;
-      case 'menu': this.stopGame(); break;
+      case 'menu': if (this.inVR) this.exitVR(); this.stopGame(); break;
+      case 'recenter': this.placeVR(); this.togglePause(); break;
+      case 'vrsize': this.vr.mode = this.vr.mode === 'table' ? 'floor' : 'table'; this.placeVR(); this.togglePause(); break;
+      case 'exitvr': this.exitVR(); break;
       case 'settings': this.ui.showModal('pauseScreen'); break; // sliders need a real 2D form
       case 'switchView': this.startLevel(this.level.n); break;
       case 'cancelView': this.ui.setViewMode(this.viewPrev, true); this.togglePause(); break;
@@ -344,7 +361,7 @@ class GameApp {
         break;
       case 'restart': if (inGame) { this.ui.hideModals(); this.startLevel(this.level.n); } break;
       case 'calibrate': this.calibrate(); break;
-      case 'view': this.ui.setViewMode(this.cycleViewMode()); break;
+      case 'view': if (!this.inVR) this.ui.setViewMode(this.cycleViewMode()); break; // VR has its own Table/Floor sizes
       case 'mute': this.ui.toggleMute(); break;
       case 'map': if (this.viewMode === 'INSIDE') this.toggleMap(); break;
       case 'confirm':
@@ -578,10 +595,13 @@ class GameApp {
 
     const xr = this.renderer.renderer.xr;
     if (xr.isPresenting) {
-      const pressed = this.controls.pollXR(xr.getSession());
-      if (pressed && !this.xrConfirmHeld) this.handleAction('confirm');
-      this.xrConfirmHeld = pressed;
-      this.hud.layout(1.4, 70, 1.2);
+      const { confirm, pause } = this.controls.pollXR(xr.getSession());
+      if (confirm && !this.xrConfirmHeld) this.handleAction('confirm');
+      if (pause && !this.xrPauseHeld) this.handleAction('pause');
+      this.xrConfirmHeld = confirm; this.xrPauseHeld = pause;
+      // The head pose is only known after a few XR frames have rendered
+      if (this.vr.pending && ++this.vr.frames > 3) this.placeVR();
+      this.hud.layout(VR.HUD.DIST, VR.HUD.FOV, VR.HUD.ASPECT);
     }
     this.controls.update(dt); // every frame, so gamepad/XR can drive dialogs while paused
     if (this.hud.dialogVisible) this.pollDialogStick();
@@ -600,6 +620,8 @@ class GameApp {
   }
 
   /* ------------------------------ WebXR ------------------------------ */
+  get inVR() { return this.renderer.renderer.xr.isPresenting; }
+
   setupWebXR() {
     if (!navigator.xr) return;
     navigator.xr.isSessionSupported('immersive-vr').then(ok => {
@@ -612,28 +634,79 @@ class GameApp {
           this.renderer.renderer.xr.setReferenceSpaceType('local-floor');
           await this.renderer.renderer.xr.setSession(session);
           session.addEventListener('select', () => this.handleAction('confirm')); // trigger = OK
-          if (this.state === 'MENU') this.startLevel(this.progress.unlocked);
-          const fit = () => {
-            const { W, H } = this.board.extent;
-            const s = 1.0 / Math.max(W, H); // board ~1 m across on a virtual table
-            this.board.world.scale.setScalar(s);
-            this.board.world.position.set(0, 0.85, -0.7);
-          };
-          fit();
+          session.addEventListener('end', () => this.onVREnd());
           this.renderer.cameraGroup.position.set(0, 0, 0);
           this.renderer.cameraGroup.quaternion.identity();
-          this.xrFit = setInterval(fit, 500); // re-fit when the level (board size) changes
-          session.addEventListener('end', () => {
-            clearInterval(this.xrFit);
-            this.board.world.scale.setScalar(1);
-            this.board.world.position.set(0, 0, 0);
-          });
+          this.hud.attachTo(this.vrHud);
+          this.hud.setMapVisible(false); this.hud.setMapButton(false);
+          this.board.setWallTarget(1, 10); this.board.setFrosted(false); // board views only in VR
+          this.vr.pending = true; this.vr.frames = 0;
+          // Inside view (ball's-eye camera) is not offered in VR: moving the camera through corridors
+          // while the player stands still is a classic motion-sickness trigger.
+          if (this.viewMode === 'INSIDE') this.ui.setViewMode('AUTO', true);
+          this.startLevel(this.state === 'MENU' ? this.progress.unlocked : this.level.n);
         } catch (err) {
           console.warn('[WebXR] session failed:', err);
           alert('Could not start VR: ' + err.message);
         }
       });
     }).catch(() => {});
+  }
+
+  /**
+   * Place the board (and the floating HUD) relative to where the player's head is right now:
+   * Table = a ~0.9 m board below the eyes in front of you; Floor = a ~3.2 m maze at your feet.
+   * Seated or standing, and whatever floor height the headset reports, you look down onto it.
+   */
+  placeVR() {
+    const cam = this.renderer.mainCamera; // three r128 copies the XR head pose into the user camera each frame
+    const head = cam.position.clone();
+    const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
+    fwd.y = 0;
+    if (fwd.lengthSq() < 1e-6) fwd.set(0, 0, -1);
+    fwd.normalize();
+    Object.assign(this.vr, { pending: false, head, fwd, yaw: Math.atan2(-fwd.x, -fwd.z) });
+    this.vrHud.position.copy(head);
+    this.vrHud.rotation.set(0, this.vr.yaw, 0);
+    this.applyVR();
+  }
+
+  /** Scale and position the board for the current VR mode (also on each new level: board size changes). */
+  applyVR() {
+    const v = this.vr;
+    if (!v.head || !this.board.extent) return;
+    const { W, H } = this.board.extent, span = Math.max(W, H);
+    const w = this.board.world;
+    if (v.mode === 'table') {
+      const s = VR.TABLE.SIZE / span, depth = H * s;
+      w.scale.setScalar(s);
+      w.position.copy(v.head).addScaledVector(v.fwd, VR.TABLE.NEAR_EDGE + depth / 2);
+      w.position.y = v.head.y - VR.TABLE.BELOW_EYES;
+    } else {
+      const s = VR.FLOOR.SIZE / span, depth = H * s;
+      // local-floor puts the real floor at y = 0; if the headset gave no floor, assume a standing eye height
+      const floorY = v.head.y > 0.8 ? 0 : v.head.y - VR.FLOOR.STAND_EYE;
+      w.scale.setScalar(s);
+      w.position.copy(v.head).addScaledVector(v.fwd, VR.FLOOR.NEAR_EDGE + depth / 2);
+      w.position.y = floorY + 0.02;
+    }
+    w.rotation.set(0, v.yaw, 0); // the board's near edge faces the player
+  }
+
+  exitVR() {
+    const session = this.renderer.renderer.xr.getSession();
+    if (session) session.end();
+  }
+
+  onVREnd() {
+    // three r128 copied the head pose into the user camera; our flat-screen rig expects it at rest
+    const cam = this.renderer.mainCamera;
+    cam.position.set(0, 0, 0); cam.quaternion.identity(); cam.scale.set(1, 1, 1); cam.updateMatrix();
+    const w = this.board.world;
+    w.scale.setScalar(1); w.position.set(0, 0, 0); w.rotation.set(0, 0, 0);
+    this.hud.attachTo(this.renderer.mainCamera);
+    this.vr.pending = false; this.vr.head = null;
+    if (this.state !== 'MENU' && this.state !== 'PAUSED') this.togglePause(); // back on the flat screen: give the player a moment
   }
 
   /* ------------------------------ PWA ------------------------------ */

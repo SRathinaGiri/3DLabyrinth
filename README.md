@@ -38,6 +38,16 @@ Board and ball values multiply together (grip → rolling resistance, bounce →
 - **Stars:** lives keep you playing but cap the rating. A life-saved fall counts like a fall (max ★★), and a rescue gives ★.
 - **3D messages:** Level clear, Rescued, Time's up and Paused are panels **inside the stereo scene** on the zero-parallax plane, so they work in SBS, anaglyph, HSBS glasses and VR. You can tap a button in either eye's half, or use ←/→ + Enter, a gamepad stick + A, or the Quest thumbstick + trigger/A. Only the slider form (⚙ 3D on the pause panel) is a normal 2D screen.
 
+## VR (Meta Quest)
+Tap **🥽 VR** in the Quest browser.
+- **Placement:** the board is placed relative to **your head when VR starts**, so it works seated or standing, whatever floor height the headset reports.
+  - **🪑 Table** (default): a ~0.9 m board 45 cm below your eyes, near edge 25 cm away, facing you. You look down onto it (about 60° at the near edge to 20° at the far edge), like a real tabletop labyrinth.
+  - **🟫 Floor**: a giant ~3.2 m maze laid on the floor at your feet.
+- **Floating HUD:** the score bar and all panels form a screen anchored in the room in front of where you sat, not glued to your face. The bar sits just above eye level, and panels are straight ahead.
+- **Controls:** the **thumbstick** tilts the board. **B / Y** opens the 3D pause panel: Resume · Restart · 🎯 Recenter · Table/Floor · ⏏ Exit VR. Use the thumbstick to choose and the **trigger or A** to select. "Menu" on the clear and time's-up panels becomes ⏏ Exit VR.
+- **No Inside view in VR:** the ball's-eye camera isn't offered there, because moving the camera through corridors while you stand still is a classic motion-sickness trigger.
+- Sizes are in `VR` in `js/config.js`.
+
 ## Inside view (1 ball) & minimap
 - **🧍 Inside view** (🎥 button cycles Auto → Whole board → Follow → Inside, or press <kbd>V</kbd>): a chase camera at ball height. Walls are drawn **3.2× taller** in this view only, so the corridors tower around you; the physics doesn't change.
 - **Ball count follows the view:** Inside = **1 ball**, every board view = **3 balls**. Crossing that line mid-level restarts the level, after a 3D "Restart level?" confirmation unless you're in the first 3 s. Esc or "Keep playing" reverts the view.
