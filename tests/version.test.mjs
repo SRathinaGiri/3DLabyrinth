@@ -49,3 +49,15 @@ test('service worker only deletes its own old caches (other apps share the githu
   assert.match(sw, /CACHE_PREFIX = 'labyrinth-'/);
   assert.match(sw, /CACHE_VERSION = 'labyrinth-v/);
 });
+
+test('import map pins every module to the current version (no stale-module mixing after updates)', () => {
+  const html = read('index.html');
+  const m = html.match(/<script type="importmap">([\s\S]*?)<\/script>/);
+  assert.ok(m, 'index.html needs an import map');
+  const imports = JSON.parse(m[1]).imports;
+  for (const mod of ['config', 'maze', 'physics', 'renderer', 'board', 'materials', 'controls', 'hud3d', 'audio', 'ui']) {
+    assert.equal(imports[`./js/${mod}.js`], `./js/${mod}.js?v=${VERSION}`, `import map entry for ${mod}.js`);
+  }
+  assert.ok(html.indexOf('type="importmap"') < html.indexOf('type="module"'), 'import map must come before the module script');
+  assert.match(read('sw.js'), /cache: 'reload'/, 'service worker must pre-cache from the network');
+});

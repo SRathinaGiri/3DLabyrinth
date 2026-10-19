@@ -1,6 +1,6 @@
 // Service Worker for 3D Labyrinth PWA (network-first, offline fallback; pattern from 3D Tunnel Rush)
 const CACHE_PREFIX = 'labyrinth-';
-const CACHE_VERSION = 'labyrinth-v1.9.0';
+const CACHE_VERSION = 'labyrinth-v1.9.1';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -28,7 +28,10 @@ const ASSETS_TO_CACHE = [
 
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_VERSION).then(cache => cache.addAll(ASSETS_TO_CACHE)).catch(err => console.warn('[SW] pre-cache:', err))
+    // cache: 'reload' = straight from the network: the HTTP cache may still hold the previous release
+    caches.open(CACHE_VERSION)
+      .then(cache => cache.addAll(ASSETS_TO_CACHE.map(u => new Request(u, { cache: 'reload' }))))
+      .catch(err => console.warn('[SW] pre-cache:', err))
   );
 });
 

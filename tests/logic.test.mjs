@@ -206,3 +206,15 @@ test('a sliding gate never squeezes a ball through a wall (pinch regression)', (
   }
   assert.ok(scenarios > 500);
 });
+
+test('goal cup: first ball rests on the bottom, the others stack on it, all inside the cup', () => {
+  const L = buildLevel(1);
+  const w = new PhysicsWorld(L);
+  w.balls.forEach((b, i) => Object.assign(b, { x: L.goal.x + (i - 1) * 0.05, z: L.goal.z, vx: 0, vz: 0 }));
+  for (let f = 0; f < 180; f++) w.step(1 / 60, 0, 0);
+  const R = BOARD.BALL_R, bottom = -(BOARD.FLOOR_T + BOARD.GOAL_PIT_DEPTH);
+  const bySlot = [...w.balls].sort((a, b) => a.slot - b.slot);
+  assert.ok(Math.abs(bySlot[0].y - (bottom + R)) < 0.05, `first ball should sit on the bottom, y=${bySlot[0].y}`);
+  for (let i = 1; i < bySlot.length; i++) assert.ok(bySlot[i].y - bySlot[i - 1].y >= 2 * R - 1e-6, 'balls overlap in the cup');
+  assert.ok(bySlot.at(-1).y + R <= 0, 'top ball sticks out of the cup');
+});

@@ -120,12 +120,13 @@ export class BoardView {
     const goalBottomMat = this.track(new THREE.MeshStandardMaterial({ color: 0x0d5c3d, emissive: 0x16c47f, emissiveIntensity: 0.7 }));
     const redRimMat = this.track(new THREE.MeshBasicMaterial({ color: L.rim }));
     for (const h of holeList) {
-      const pit = new THREE.Mesh(this.track(new THREE.CylinderGeometry(h.r, h.r * 0.9, PIT_DEPTH, 28, 1, true)), h.goal ? goalPitMat : pitMat);
-      pit.position.set(h.x, -FLOOR_T - PIT_DEPTH / 2 + 0.01, h.z);
+      const depth = h.goal ? BOARD.GOAL_PIT_DEPTH : PIT_DEPTH; // goal is a cup that holds the three balls
+      const pit = new THREE.Mesh(this.track(new THREE.CylinderGeometry(h.r, h.r * 0.9, depth, 28, 1, true)), h.goal ? goalPitMat : pitMat);
+      pit.position.set(h.x, -FLOOR_T - depth / 2 + 0.01, h.z);
       this.boardGroup.add(pit);
       const bottom = new THREE.Mesh(this.track(new THREE.CircleGeometry(h.r * 0.9, 24)), h.goal ? goalBottomMat : pitBottomMat);
       bottom.rotation.x = -Math.PI / 2;
-      bottom.position.set(h.x, -FLOOR_T - PIT_DEPTH + 0.02, h.z);
+      bottom.position.set(h.x, -FLOOR_T - depth + 0.02, h.z);
       this.boardGroup.add(bottom);
       const ring = new THREE.Mesh(this.track(new THREE.RingGeometry(h.r, h.r + 0.07, 32)),
         h.goal ? this.track(new THREE.MeshBasicMaterial({ color: 0x34ff9a })) : redRimMat);

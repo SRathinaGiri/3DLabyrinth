@@ -12,7 +12,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Labyrinth3D">
-  <link rel="stylesheet" href="./css/styles.css?v=1.9.0">
+  <link rel="stylesheet" href="./css/styles.css?v=1.9.1">
   <!-- Three.js r128, bundled locally so the PWA works fully offline -->
   <script src="./js/lib/three.min.js"></script>
 </head>
@@ -28,7 +28,7 @@
           <circle cx="6" cy="12" r="1.8" fill="#ffc93c" stroke="none"/>
         </svg>
         <span>3D Labyrinth</span>
-        <span class="version-badge">v1.9.0</span>
+        <span class="version-badge">v1.9.1</span>
       </div>
       <div class="header-controls">
         <button class="icon-btn install-btn" id="installBtn" style="display:none" title="Install as an app on this device">📲 Install app</button>
@@ -221,6 +221,24 @@
     </div>
   </div>
 
-  <script type="module" src="./js/app.js?v=1.9.0"></script>
+  <!-- Every module gets the release version in its URL, so an update can never mix old and new code
+       (HTTP/CDN caches would otherwise serve stale modules next to a fresh app.js). -->
+  <script type="importmap">
+  {
+    "imports": {
+      "./js/config.js": "./js/config.js?v=1.9.1",
+      "./js/maze.js": "./js/maze.js?v=1.9.1",
+      "./js/physics.js": "./js/physics.js?v=1.9.1",
+      "./js/renderer.js": "./js/renderer.js?v=1.9.1",
+      "./js/board.js": "./js/board.js?v=1.9.1",
+      "./js/materials.js": "./js/materials.js?v=1.9.1",
+      "./js/controls.js": "./js/controls.js?v=1.9.1",
+      "./js/hud3d.js": "./js/hud3d.js?v=1.9.1",
+      "./js/audio.js": "./js/audio.js?v=1.9.1",
+      "./js/ui.js": "./js/ui.js?v=1.9.1"
+    }
+  }
+  </script>
+  <script type="module" src="./js/app.js?v=1.9.1"></script>
 </body>
 </html>

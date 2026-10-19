@@ -41,7 +41,7 @@ Board and ball values multiply together (grip → rolling resistance, bounce →
 ## VR (Meta Quest)
 Tap **🥽 VR** in the Quest browser.
 - **Placement:** the board is placed relative to **your head when VR starts**, so it works seated or standing, whatever floor height the headset reports.
-  - **🪑 Table** (default): a ~0.9 m board 45 cm below your eyes, near edge 25 cm away, facing you. You look down onto it (about 60° at the near edge to 20° at the far edge), like a real tabletop labyrinth.
+  - **🪑 Table** (default): a ~0.8 m board 55 cm below your eyes, near edge 15 cm away, facing you. You look down onto it (about 75° near, 45° at the centre, 30° at the far edge), like a real tabletop labyrinth. Walls are drawn at 60% height in VR (visual only), so walls never hide the far holes.
   - **🟫 Floor**: a giant ~3.2 m maze laid on the floor at your feet.
 - **Floating HUD:** the score bar and all panels form a screen anchored in the room in front of where you sat, not glued to your face. The bar sits just above eye level, and panels are straight ahead.
 - **Controls:** the **thumbstick** tilts the board. **B / Y** opens the 3D pause panel: Resume · Restart · 🎯 Recenter · Table/Floor · ⏏ Exit VR. Use the thumbstick to choose and the **trigger or A** to select. "Menu" on the clear and time's-up panels becomes ⏏ Exit VR.
@@ -93,7 +93,7 @@ Then open http://localhost:8086. Gyro access needs **HTTPS** on real phones; Git
 Play, lives and the level list are always visible. **Board & Balls**, **Controls** and **3D Viewing** are collapsible sections, closed by default so first-time (mobile) players reach Play fast. Each header shows its current choice (e.g. *Neon · Plastic*), and which sections are open is remembered.
 
 ## Releasing
-Bump the version in **all** of: `js/config.js` (`VERSION`), `sw.js` (`CACHE_VERSION`), `manifest.json`, and `index.html` (badge + `?v=` on the CSS/JS). `tests/version.test.mjs` fails if any of them disagree, so an installed PWA always picks up the new cache. The service worker only deletes old caches named `labyrinth-*`: other apps on the same `github.io` origin (e.g. 3D Tunnel Rush) keep their offline copies, and the test enforces that too.
+Bump the version in **all** of: `js/config.js` (`VERSION`), `sw.js` (`CACHE_VERSION`), `manifest.json`, and `index.html` (badge + `?v=` on the CSS/JS). `tests/version.test.mjs` fails if any of them disagree, so an installed PWA always picks up the new cache. Every module also loads through an **import map** with `?v=<version>` in its URL, and the service worker pre-caches from the network (`cache: 'reload'`). An update can therefore never mix old and new code, even when a CDN or the HTTP cache still holds the previous release. The service worker only deletes old caches named `labyrinth-*`: other apps on the same `github.io` origin (e.g. 3D Tunnel Rush) keep their offline copies, and the test enforces that too.
 
 ## Tests
 ```bash

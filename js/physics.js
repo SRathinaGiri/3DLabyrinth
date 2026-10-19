@@ -162,8 +162,8 @@ export class PhysicsWorld {
       b.timer -= h;
       if (b.timer <= 0 && this.placeAtStart(b, b.id) && events.respawn) events.respawn(b);
     } else if (b.state === 'captured') {
-      // Stack captured balls down the goal pit so all three stay visible-ish
-      const targetY = -R - b.slot * 2 * R * 0.98;
+      // First ball drops to the bottom of the goal cup, later ones stack on top of it
+      const targetY = -(BOARD.FLOOR_T + BOARD.GOAL_PIT_DEPTH) + 0.02 + R + b.slot * (2 * R + 0.002);
       b.vy -= 30 * h; b.y = Math.max(targetY, b.y + b.vy * h);
       if (b.y === targetY) b.vy = 0;
       b.x += (b.fx - b.x) * Math.min(1, 10 * h);

@@ -601,6 +601,7 @@ class GameApp {
       this.xrConfirmHeld = confirm; this.xrPauseHeld = pause;
       // The head pose is only known after a few XR frames have rendered
       if (this.vr.pending && ++this.vr.frames > 3) this.placeVR();
+      this.board.setWallTarget(VR.WALL_SCALE, dt); // lower walls in VR so you can see over them to far holes
       this.hud.layout(VR.HUD.DIST, VR.HUD.FOV, VR.HUD.ASPECT);
     }
     this.controls.update(dt); // every frame, so gamepad/XR can drive dialogs while paused
