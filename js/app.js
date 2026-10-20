@@ -367,7 +367,7 @@ class GameApp {
       case 'calibrate': this.calibrate(); break;
       case 'view': if (!this.inVR) this.ui.setViewMode(this.cycleViewMode()); break; // VR has its own Table/Floor sizes
       case 'mute': this.ui.toggleMute(); break;
-      case 'map': if (this.viewMode === 'INSIDE') this.toggleMap(); break;
+      case 'map': if (this.hud.mapBtn.mesh.visible) this.toggleMap(); break; // wherever the 🗺 icon is offered
       case 'confirm':
         if (this.state === 'MENU') this.startLevel(this.progress.unlocked);
         break;
@@ -490,10 +490,13 @@ class GameApp {
     this.board.setFrosted(inside);
     this.physics.hopHeight = PHYS.HOP_HEIGHT + BOARD.WALL_H * (this.board.wallScale - 1); // clear the taller walls
     r.fov += ((inside ? INSIDE_VIEW.FOV : 50) - r.fov) * Math.min(1, 4 * dt);
-    const insideHud = inside && !this.hud.dialogVisible && this.physics.balls.length === 1;
-    this.hud.setMapVisible(insideHud && this.mapOn);
-    this.hud.setMapButton(insideHud, this.mapOn);
-    if (inside) { this.updateInsideCamera(dt); return; }
+    if (inside) {
+      const insideHud = !this.hud.dialogVisible && this.physics.balls.length === 1;
+      this.hud.setMapVisible(insideHud && this.mapOn);
+      this.hud.setMapButton(insideHud, this.mapOn);
+      this.updateInsideCamera(dt);
+      return;
+    }
     const { W, H } = this.board.extent;
     const aspect = r.eyeAspect();
     const vf = (r.fov / 2) * DEG, hf = Math.atan(Math.tan(vf) * aspect);
@@ -532,6 +535,16 @@ class GameApp {
     r.cameraGroup.position.copy(pos);
     const dir = this.cam.target.clone().sub(pos).normalize();
     r.cameraGroup.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, -1), dir);
+
+    // Zoomed-in views (Follow, or Auto on a big maze) can't see the whole board: offer the north-up
+    // map (the camera never turns here, so neither does the map) with all balls and the visible area
+    const mapHud = follow && !this.hud.dialogVisible;
+    this.hud.setMapVisible(mapHud && this.mapOn);
+    this.hud.setMapButton(mapHud, this.mapOn);
+    if (mapHud && this.mapOn) {
+      const t = this.cam.target, vw = this.cam.dist * Math.tan(hf), vd = this.cam.dist * Math.tan(vf) / Math.sin(CAM_PITCH);
+      this.hud.updateBoardMap(this.physics.balls, dt, this.physics.apples, { x0: t.x - vw, x1: t.x + vw, z0: t.z - vd, z1: t.z + vd });
+    }
 
     // Stereo follows the viewing distance so depth feels the same on a 5x5 or a 16x16 board
     r.setFocalLength(this.cam.dist * (1 + this.focusOffset));

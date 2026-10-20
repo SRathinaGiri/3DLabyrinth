@@ -74,6 +74,7 @@ How it works (`js/link.js`, `js/pad.js`): the two browsers can't find each other
 - **Camera details:** the camera pulls in and booms up when a wall is behind it. A headlamp lights the corridor, and a green light beam over the goal shows the way.
 - **Minimap** (Inside view only): a round, GPS-style 3D panel at screen depth in both eyes. Your ball stays in the lower centre with its arrow pointing **up**, and the maze turns smoothly with the camera, so up on the map is always straight ahead in the 3D view. An **N** on the rim shows north, a green marker on the rim points to the goal when it's off the map, and apples, holes and gates are drawn too. Big mazes zoom to about 4.5 cells around you.
 - **🗺 Map toggle:** a small 3D icon above the minimap. Tap it in either eye's half (or press <kbd>N</kbd>) to show or hide the map. The tap never tilts the board, and the choice is remembered.
+- **Map in zoomed board views:** **Follow**, and **Auto** when it zooms in on a big maze, can't show the whole board, so they get a map too. It is **north-up**, because the camera never turns in these views, and shows the whole maze, **all three balls** in their colours and a dashed rectangle for the area currently on screen. It uses the same 🗺 icon and <kbd>N</kbd> setting. The Whole-board view and VR don't need one.
 
 ## Difficulty curve (`js/config.js`)
 | Level | What gets added |

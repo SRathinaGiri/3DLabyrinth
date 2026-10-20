@@ -151,6 +151,45 @@ export class HUD3D {
   }
 
   /**
+   * Whole-board minimap for the zoomed-in board views (Follow / Auto on big mazes), redrawn ~12x/s.
+   * North-up like the camera, which never turns there. Shows every ball in its own colour and a
+   * rectangle for the part of the board currently on screen.
+   */
+  updateBoardMap(balls, dt, apples = [], view = null) {
+    if (!this.map.mesh.visible || !this.mapLayer) return;
+    this.mapTimer -= dt;
+    if (this.mapTimer > 0) return;
+    this.mapTimer = 1 / 12;
+    const g = this.map.ctx, S = MAP_PX, { scale, ox, oz, W, H } = this.mapXf;
+    const X = x => ox + (x + W / 2) * scale, Z = z => oz + (z + H / 2) * scale;
+    g.clearRect(0, 0, S, S);
+    g.fillStyle = 'rgba(2,6,23,0.72)';
+    roundRect(g, 4, 4, S - 8, S - 8, 40); g.fill();
+    g.strokeStyle = 'rgba(0,240,255,0.55)'; g.lineWidth = 5; g.stroke();
+    g.drawImage(this.mapLayer, 0, 0);
+    for (const a of apples) {
+      if (a.taken) continue;
+      g.fillStyle = '#ff3b3b'; g.strokeStyle = '#ffffff'; g.lineWidth = 4;
+      g.beginPath(); g.arc(X(a.x), Z(a.z), 15, 0, Math.PI * 2); g.fill(); g.stroke();
+    }
+    if (view) { // what the camera is showing right now
+      const x0 = Math.max(ox, X(view.x0)), x1 = Math.min(S - ox, X(view.x1));
+      const z0 = Math.max(oz, Z(view.z0)), z1 = Math.min(S - oz, Z(view.z1));
+      g.fillStyle = 'rgba(255,255,255,0.08)'; g.fillRect(x0, z0, x1 - x0, z1 - z0);
+      g.setLineDash([14, 10]); g.strokeStyle = 'rgba(255,255,255,0.85)'; g.lineWidth = 4;
+      g.strokeRect(x0, z0, x1 - x0, z1 - z0); g.setLineDash([]);
+    }
+    balls.forEach((b, i) => {
+      if (b.state !== 'roll' && b.state !== 'hop') return; // home, falling or respawning: not on the board
+      g.fillStyle = BALL_CSS[i % BALL_CSS.length]; g.strokeStyle = '#020617'; g.lineWidth = 4;
+      g.beginPath(); g.arc(X(b.x), Z(b.z), Math.max(12, BOARD.BALL_R * scale * 1.8), 0, Math.PI * 2); g.fill(); g.stroke();
+    });
+    g.fillStyle = 'rgba(226,232,240,0.85)'; g.font = '700 30px system-ui, sans-serif';
+    g.textAlign = 'center'; g.textBaseline = 'top'; g.fillText('N ▲', S / 2, 6);
+    this.map.tex.needsUpdate = true;
+  }
+
+  /**
    * GPS-style minimap, redrawn ~15x/s: the ball stays put (lower-centre) with its arrow pointing UP,
    * and the maze turns smoothly with the camera yaw, so "up" on the map is always "ahead" in 3D.
    * A north marker rides the rim; the goal is pinned to the rim when it is off the map.
