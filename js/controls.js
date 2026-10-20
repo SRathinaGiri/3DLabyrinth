@@ -205,17 +205,25 @@ export class ControlsHandler {
   hideJoy() { if (this.joyEl) this.joyEl.style.display = 'none'; }
 
   /* ---------- Gamepad & WebXR controllers ---------- */
+  /**
+   * Bluetooth / USB gamepads (standard mapping), e.g. with smart glasses where the phone stays in a pocket:
+   * left stick or D-pad tilts (and moves between panel buttons), A confirms, B or Start pauses / resumes.
+   */
   pollGamepads() {
     this.padTilt.x = this.padTilt.y = 0;
-    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
-    // A / Cross button acts like Enter (edge-triggered)
-    const confirm = [...pads].some(gp => gp && gp.buttons[0] && gp.buttons[0].pressed);
+    const pads = [...(navigator.getGamepads ? navigator.getGamepads() : [])].filter(Boolean);
+    const pressed = (gp, i) => !!(gp.buttons[i] && gp.buttons[i].pressed);
+    const confirm = pads.some(gp => pressed(gp, 0));                    // A / Cross
+    const pause = pads.some(gp => pressed(gp, 1) || pressed(gp, 9));    // B / Circle, Start / Options
     if (confirm && !this.padConfirmHeld && this.onAction) this.onAction('confirm');
-    this.padConfirmHeld = confirm;
+    if (pause && !this.padPauseHeld && this.onAction) this.onAction('pause');
+    this.padConfirmHeld = confirm; this.padPauseHeld = pause;
     for (const gp of pads) {
-      if (!gp || gp.axes.length < 2) continue;
-      const x = gp.axes[0], y = gp.axes[1];
+      const x = gp.axes[0] || 0, y = gp.axes[1] || 0;
       if (Math.hypot(x, y) > 0.15) { this.padTilt.x = clamp1(x); this.padTilt.y = clamp1(-y); return; }
+      // D-pad: buttons 12-15 = up, down, left, right
+      const dx = (pressed(gp, 15) ? 1 : 0) - (pressed(gp, 14) ? 1 : 0), dy = (pressed(gp, 12) ? 1 : 0) - (pressed(gp, 13) ? 1 : 0);
+      if (dx || dy) { this.padTilt.x = dx; this.padTilt.y = dy; return; }
     }
   }
 

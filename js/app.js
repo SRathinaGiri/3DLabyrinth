@@ -591,7 +591,10 @@ class GameApp {
     const now = timestamp || performance.now();
     const dt = Math.min(Math.max(((now - (this.lastTime || now)) / 1000), 0.001), 0.05);
     this.lastTime = now;
-    if (this.state === 'MENU' || !this.level) return; // menu has no 3D view: save battery
+    if (this.state === 'MENU' || !this.level) {
+      this.controls.pollGamepads(); // a pad's A button can start the game from the menu (glasses players)
+      return; // menu has no 3D view: save battery
+    }
 
     const xr = this.renderer.renderer.xr;
     if (xr.isPresenting) {
@@ -691,7 +694,10 @@ class GameApp {
       w.position.copy(v.head).addScaledVector(v.fwd, VR.FLOOR.NEAR_EDGE + depth / 2);
       w.position.y = floorY + 0.02;
     }
-    w.rotation.set(0, v.yaw, 0); // the board's near edge faces the player
+    // Near edge faces the player; on the table the far edge is also raised (drafting-table tilt) so you see
+    // past the walls to far holes. Display only: the balls still follow the thumbstick tilt, not this one.
+    const pitch = v.mode === 'table' ? VR.TABLE.TILT_DEG * Math.PI / 180 : 0;
+    w.rotation.set(pitch, v.yaw, 0, 'YXZ');
   }
 
   exitVR() {

@@ -41,12 +41,21 @@ Board and ball values multiply together (grip → rolling resistance, bounce →
 ## VR (Meta Quest)
 Tap **🥽 VR** in the Quest browser.
 - **Placement:** the board is placed relative to **your head when VR starts**, so it works seated or standing, whatever floor height the headset reports.
-  - **🪑 Table** (default): a ~0.8 m board 55 cm below your eyes, near edge 15 cm away, facing you. You look down onto it (about 75° near, 45° at the centre, 30° at the far edge), like a real tabletop labyrinth. Walls are drawn at 60% height in VR (visual only), so walls never hide the far holes.
+  - **🪑 Table** (default): a ~0.8 m board 55 cm below your eyes, near edge 15 cm away, facing you, with its far edge raised **20° like a drafting table**. Your line of sight meets the board at about 44° even at the far edge (30° when flat). Walls are drawn at 60% height in VR. Both the tilt and the lower walls are display only (balls follow the thumbstick), so walls never hide the far holes.
   - **🟫 Floor**: a giant ~3.2 m maze laid on the floor at your feet.
 - **Floating HUD:** the score bar and all panels form a screen anchored in the room in front of where you sat, not glued to your face. The bar sits just above eye level, and panels are straight ahead.
 - **Controls:** the **thumbstick** tilts the board. **B / Y** opens the 3D pause panel: Resume · Restart · 🎯 Recenter · Table/Floor · ⏏ Exit VR. Use the thumbstick to choose and the **trigger or A** to select. "Menu" on the clear and time's-up panels becomes ⏏ Exit VR.
 - **No Inside view in VR:** the ball's-eye camera isn't offered there, because moving the camera through corridors while you stand still is a classic motion-sickness trigger.
 - Sizes are in `VR` in `js/config.js`.
+
+## Smart glasses (RayNeo Air, XREAL, Rokid, TCL)
+The glasses are a display for your phone, so **the phone in your hand is the controller**:
+1. Connect the glasses and pick **3D Viewing → Smart Glasses (HSBS)**.
+2. Switch the glasses to their 3D / SBS mode.
+3. Start a level. The screen locks to landscape, and the countdown takes your current grip as "flat".
+- **Phone as controller:** tilt the phone to tilt the board, just like holding a real labyrinth. You can also drag on the phone screen without looking. 🎯 Re-level resets "flat".
+- **Bluetooth gamepad** (8BitDo, Xbox, PlayStation…): the left stick or D-pad tilts and moves between panel buttons. **A** confirms and starts from the menu, and **B / Start** pauses and resumes, so the phone can stay in your pocket.
+- **Bluetooth "selfie remotes":** they usually send volume keys, which web pages can't read.
 
 ## Inside view (1 ball) & minimap
 - **🧍 Inside view** (🎥 button cycles Auto → Whole board → Follow → Inside, or press <kbd>V</kbd>): a chase camera at ball height. Walls are drawn **3.2× taller** in this view only, so the corridors tower around you; the physics doesn't change.
