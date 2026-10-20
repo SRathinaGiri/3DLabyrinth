@@ -28,6 +28,12 @@ export class UIManager {
     this.setupInstall();
   }
 
+  syncGuide() {
+    const b = $('guideBtn');
+    if (b) { b.classList.toggle('active', !!this.app.guideOn); b.textContent = `🧭 Route guide: ${this.app.guideOn ? 'ON' : 'OFF'}`; }
+    if (this.app.look) this.syncSummaries();
+  }
+
   /* ---------- Phone controller pairing panel ---------- */
   showLinkPanel(code, status) {
     const url = new URL('controller.html', location.href);
@@ -74,7 +80,7 @@ export class UIManager {
     const a = this.app;
     const set = (id, text) => { if ($(id)) $(id).textContent = text; };
     set('sumLook', `${BOARD_SURFACES[a.look.board].name} · ${BALL_TYPES[a.look.ball].name}`);
-    set('sumControls', `Gyro ${a.controls.gyroEnabled ? 'on' : a.controls.gyroWanted ? 'auto' : 'off'} · ${VIEW_LABEL[a.viewMode].replace(/^\S+ View: /, '')}`);
+    set('sumControls', `Gyro ${a.controls.gyroEnabled ? 'on' : a.controls.gyroWanted ? 'auto' : 'off'} · ${VIEW_LABEL[a.viewMode].replace(/^\S+ View: /, '')}${a.guideOn ? ' · 🧭 guide' : ''}`);
     set('sum3d', `${{ '2d': '2D', parallel: 'Parallel 3D', cross: 'Cross-Eye 3D', anaglyph: 'Anaglyph', hsbs: 'Smart Glasses' }[a.renderer.mode]}${a.renderer.mode === '2d' ? '' : ` · depth ${a.depth.toFixed(2)}`}`);
   }
 
@@ -146,6 +152,7 @@ export class UIManager {
     ['viewModeBtn', 'gameViewBtn'].forEach(id => this.on(id, () => this.setViewMode(a.cycleViewMode())));
     this.on('helpBtn', () => { $('infoDrawer').classList.remove('hidden'); });
     this.on('phonePadBtn', () => a.startPhoneLink());
+    this.on('guideBtn', () => a.toggleGuide());
     this.on('linkDoneBtn', () => $('linkPanel').classList.add('hidden'));
     this.on('linkStopBtn', () => { a.stopPhoneLink(); $('linkPanel').classList.add('hidden'); });
     this.on('closeInfoBtn', () => { $('infoDrawer').classList.add('hidden'); });
@@ -345,7 +352,8 @@ export class UIManager {
       gyroWanted: a.controls.gyroWanted,
       gyroSensitivity: a.controls.gyroSensitivity,
       invertY: a.controls.invertY,
-      mapOn: a.mapOn,
+      mapMode: a.mapMode,
+      guide: !!a.guideOn,
       board: a.look.board,
       ball: a.look.ball
     };
@@ -364,7 +372,11 @@ export class UIManager {
     this['set_.sens-slider'](typeof s.gyroSensitivity === 'number' ? s.gyroSensitivity : 20);
     a.renderer.swapEyes = !!s.swapEyes; this.syncSwap();
     a.controls.invertY = !!s.invertY; this.syncInvert();
-    a.mapOn = s.mapOn !== false; // default on
+    // Older saves had mapOn true/false; now a 3-way size
+    a.mapMode = ['off', 'small', 'large'].includes(s.mapMode) ? s.mapMode : (s.mapOn === false ? 'off' : 'small');
+    a.hud.setMapLarge(a.mapMode === 'large');
+    a.guideOn = !!s.guide;
+    this.syncGuide();
     if (s.muted && !a.audio.muted) a.audio.toggleMute();
     this.syncMute();
     a.controls.gyroWanted = s.gyroWanted !== false; // default ON

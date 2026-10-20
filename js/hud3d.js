@@ -6,6 +6,7 @@
    ========================================================================== */
 
 import { BOARD } from './config.js';
+import { routeGuide, cellCenter } from './maze.js';
 
 const MAP_PX = 512;
 
@@ -71,15 +72,18 @@ export class HUD3D {
     const bW = Math.min(viewW * 0.86, viewH * 1.1);
     this.banner.mesh.scale.set(bW, bW / 2, 1);
     this.banner.mesh.position.set(0, 0, -distance);
-    // Map toggle icon top-right under the status bar; minimap just below it
-    const mS = Math.min(viewW * 0.4, viewH * 0.34), margin = viewH * 0.02;
-    const iS = Math.max(mS * 0.24, viewH * 0.075);
+    // Map toggle icon top-right under the status bar; minimap just below it. Small = a corner glance;
+    // Large = most of the free height, so it stays readable on short (phone landscape) screens.
+    const small = Math.min(viewW * 0.4, viewH * 0.34), margin = viewH * 0.02;
+    const iS = Math.max(small * 0.24, viewH * 0.075);
     const iX = viewW / 2 - iS / 2 - margin, iY = viewH / 2 - barH - viewH * 0.03 - iS / 2;
     this.mapBtn.mesh.scale.set(iS, iS, 1);
     this.mapBtn.mesh.position.set(iX, iY, -distance * 0.997);
     this.mapBtnNdc = { x: iX / (viewW / 2), y: iY / (viewH / 2), hw: iS / viewW, hh: iS / viewH };
+    const top = iY - iS / 2 - viewH * 0.015, bottom = -viewH / 2 + margin;
+    const mS = this.mapLarge ? Math.min(top - bottom, viewW * 0.62) : small;
     this.map.mesh.scale.set(mS, mS, 1);
-    this.map.mesh.position.set(viewW / 2 - mS / 2 - margin, iY - iS / 2 - viewH * 0.015 - mS / 2, -distance * 0.998);
+    this.map.mesh.position.set(viewW / 2 - mS / 2 - margin, top - mS / 2, -distance * 0.998);
 
     const dW = Math.min(viewW * 0.94, viewH * 1.2), dH = dW * 0.625;
     this.dialog.mesh.scale.set(dW, dH, 1);
@@ -90,7 +94,7 @@ export class HUD3D {
 
   /* ---------------- Minimap (Inside view) ---------------- */
   /** Pre-render the maze top-down (north up) for this level. */
-  setMap(level) {
+  setMap(level, guide = false) {
     const cv = document.createElement('canvas');
     cv.width = cv.height = MAP_PX;
     const g = cv.getContext('2d'), { CELL } = BOARD;
@@ -102,6 +106,22 @@ export class HUD3D {
 
     g.fillStyle = 'rgba(15,23,42,0.9)';
     g.fillRect(ox, oz, W * scale, H * scale);
+    if (guide) { // route guide: green line to the goal, red / gold bars across branch openings
+      const { route, mouths } = routeGuide(level);
+      g.strokeStyle = 'rgba(52,255,154,0.55)'; g.lineWidth = Math.max(6, CELL * scale * 0.38); g.lineCap = 'round'; g.lineJoin = 'round';
+      g.beginPath();
+      route.forEach((q, i) => { const c = cellCenter(level, q.c, q.r); i ? g.lineTo(X(c.x), Z(c.z)) : g.moveTo(X(c.x), Z(c.z)); });
+      g.stroke();
+      g.lineWidth = Math.max(4, CELL * scale * 0.16); g.lineCap = 'butt';
+      for (const mo of mouths) {
+        const a = cellCenter(level, mo.c, mo.r), b = cellCenter(level, mo.nc, mo.nr);
+        const mx = X((a.x + b.x) / 2), mz = Z((a.z + b.z) / 2), half = CELL * scale * 0.42;
+        g.strokeStyle = mo.apple ? '#ffc93c' : '#ff3b5c';
+        g.beginPath();
+        if (mo.nc !== mo.c) { g.moveTo(mx, mz - half); g.lineTo(mx, mz + half); } else { g.moveTo(mx - half, mz); g.lineTo(mx + half, mz); }
+        g.stroke();
+      }
+    }
     g.fillStyle = '#7dd3fc';
     for (const w of level.walls) g.fillRect(X(w.minX), Z(w.minZ), Math.max(2, (w.maxX - w.minX) * scale), Math.max(2, (w.maxZ - w.minZ) * scale));
     for (const h of level.holes) {
@@ -120,11 +140,19 @@ export class HUD3D {
 
   setMapVisible(v) { this.map.mesh.visible = v && !!this.mapLayer; }
 
-  /** Show the 🗺 toggle (inside view) and draw it lit when the map is on. */
-  setMapButton(visible, on) {
+  /** Map size: Large fills most of the free height (readable on phone landscape), Small is a corner glance. */
+  setMapLarge(large) { if (this.mapLarge !== large) { this.mapLarge = large; this.mapTimer = 0; } }
+
+  /**
+   * Show the 🗺 toggle and draw its state. mode: 'off' | 'small' | 'large'. A badge says what the next
+   * tap does: "+" (enlarge) when small, "×" (close) when large.
+   */
+  setMapButton(visible, mode = 'off') {
+    if (mode === true) mode = 'small'; else if (mode === false) mode = 'off';
     this.mapBtn.mesh.visible = visible;
-    if (!visible || on === this.mapBtnOn) return;
-    this.mapBtnOn = on;
+    if (!visible || mode === this.mapBtnOn) return;
+    this.mapBtnOn = mode;
+    const on = mode !== 'off';
     const g = this.mapBtn.ctx;
     g.clearRect(0, 0, 128, 128);
     g.fillStyle = on ? 'rgba(0,240,255,0.28)' : 'rgba(2,6,23,0.7)';
@@ -140,6 +168,12 @@ export class HUD3D {
     g.beginPath(); g.moveTo(50, 28); g.lineTo(50, 90); g.moveTo(78, 38); g.lineTo(78, 100); g.stroke();
     g.fillStyle = on ? '#ffc93c' : 'rgba(255,201,60,0.5)';
     g.beginPath(); g.arc(64, 60, 9, 0, Math.PI * 2); g.fill();
+    if (on) { // next-tap badge, bottom-right
+      g.fillStyle = '#020617'; g.beginPath(); g.arc(100, 100, 22, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = '#00f0ff'; g.lineWidth = 4; g.stroke();
+      g.fillStyle = '#e0fbff'; g.font = '800 34px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(mode === 'large' ? '×' : '+', 100, 102);
+    }
     this.mapBtn.tex.needsUpdate = true;
   }
 

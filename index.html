@@ -12,7 +12,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Labyrinth3D">
-  <link rel="stylesheet" href="./css/styles.css?v=1.13.0">
+  <link rel="stylesheet" href="./css/styles.css?v=1.14.0">
   <!-- Three.js r128, bundled locally so the PWA works fully offline -->
   <script src="./js/lib/three.min.js"></script>
   <!-- PeerJS 1.5.5 (MIT, bundled locally): phone-controller pairing only. See js/lib/peerjs.LICENSE.txt -->
@@ -30,7 +30,7 @@
           <circle cx="6" cy="12" r="1.8" fill="#ffc93c" stroke="none"/>
         </svg>
         <span>3D Labyrinth</span>
-        <span class="version-badge">v1.13.0</span>
+        <span class="version-badge">v1.14.0</span>
       </div>
       <div class="header-controls">
         <button class="icon-btn install-btn" id="installBtn" style="display:none" title="Install as an app on this device">📲 Install app</button>
@@ -73,6 +73,7 @@
           <button class="icon-btn" id="gyroToggle" title="Tilt your phone to tilt the board">📱 <span id="gyroBadge">Gyro: AUTO</span></button>
           <button class="icon-btn" id="viewModeBtn" title="Camera: Auto / Whole board / Follow balls (V)">🎥 View: Auto</button>
           <button class="icon-btn" id="invertYBtn">↕️ Invert tilt: OFF</button>
+          <button class="icon-btn" id="guideBtn" title="Route guide: green path to the goal, red stripes across dead ends, gold for the apple branch (G). Guided clears are capped at ★★.">🧭 Route guide: OFF</button>
           <button class="icon-btn" id="phonePadBtn" title="Use a phone on the same Wi-Fi as a tilt controller (e.g. for a TV or smart glasses)">📲 Phone controller</button>
         </div>
         <div class="slider-group" title="Degrees of phone tilt for full board tilt (lower = more sensitive)">
@@ -245,20 +246,20 @@
   <script type="importmap">
   {
     "imports": {
-      "./js/config.js": "./js/config.js?v=1.13.0",
-      "./js/maze.js": "./js/maze.js?v=1.13.0",
-      "./js/physics.js": "./js/physics.js?v=1.13.0",
-      "./js/renderer.js": "./js/renderer.js?v=1.13.0",
-      "./js/board.js": "./js/board.js?v=1.13.0",
-      "./js/materials.js": "./js/materials.js?v=1.13.0",
-      "./js/controls.js": "./js/controls.js?v=1.13.0",
-      "./js/hud3d.js": "./js/hud3d.js?v=1.13.0",
-      "./js/audio.js": "./js/audio.js?v=1.13.0",
-      "./js/ui.js": "./js/ui.js?v=1.13.0",
-      "./js/link.js": "./js/link.js?v=1.13.0"
+      "./js/config.js": "./js/config.js?v=1.14.0",
+      "./js/maze.js": "./js/maze.js?v=1.14.0",
+      "./js/physics.js": "./js/physics.js?v=1.14.0",
+      "./js/renderer.js": "./js/renderer.js?v=1.14.0",
+      "./js/board.js": "./js/board.js?v=1.14.0",
+      "./js/materials.js": "./js/materials.js?v=1.14.0",
+      "./js/controls.js": "./js/controls.js?v=1.14.0",
+      "./js/hud3d.js": "./js/hud3d.js?v=1.14.0",
+      "./js/audio.js": "./js/audio.js?v=1.14.0",
+      "./js/ui.js": "./js/ui.js?v=1.14.0",
+      "./js/link.js": "./js/link.js?v=1.14.0"
     }
   }
   </script>
-  <script type="module" src="./js/app.js?v=1.13.0"></script>
+  <script type="module" src="./js/app.js?v=1.14.0"></script>
 </body>
 </html>

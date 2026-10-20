@@ -1,7 +1,7 @@
 // Run: node --test tests/
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildLevel, openNeighbours, cellCenter, hopTarget } from '../js/maze.js';
+import { buildLevel, openNeighbours, cellCenter, hopTarget, routeGuide } from '../js/maze.js';
 import { PhysicsWorld, collideBox } from '../js/physics.js';
 import { BOARD, CORRIDOR_HALF, PHYS, levelParams } from '../js/config.js';
 
@@ -217,4 +217,31 @@ test('goal cup: first ball rests on the bottom, the others stack on it, all insi
   assert.ok(Math.abs(bySlot[0].y - (bottom + R)) < 0.05, `first ball should sit on the bottom, y=${bySlot[0].y}`);
   for (let i = 1; i < bySlot.length; i++) assert.ok(bySlot[i].y - bySlot[i - 1].y >= 2 * R - 1e-6, 'balls overlap in the cup');
   assert.ok(bySlot.at(-1).y + R <= 0, 'top ball sticks out of the cup');
+});
+
+test('route guide: arrows chain start -> goal; every dead-end cell sits behind exactly one stripe; one gold stripe leads to the apple', () => {
+  for (const n of [1, 4, 9, 14, 22, 35]) {
+    const L = buildLevel(n), { route, mouths } = routeGuide(L);
+    const key = (c, r) => r * L.cols + c;
+    assert.equal(route.length, L.path.length);
+    for (let i = 0; i < route.length - 1; i++) {
+      assert.equal(route[i].c + route[i].dc, route[i + 1].c, `level ${n}: arrow ${i} points the wrong way`);
+      assert.equal(route[i].r + route[i].dr, route[i + 1].r, `level ${n}: arrow ${i} points the wrong way`);
+    }
+    // Flood each branch from its mouth: together they must cover every off-route cell exactly once
+    const onPath = new Set(L.path.map(q => key(q.c, q.r))), covered = new Map();
+    for (const mo of mouths) {
+      const stack = [{ c: mo.nc, r: mo.nr }], seen = new Set([key(mo.c, mo.r)]);
+      while (stack.length) {
+        const x = stack.pop(), k = key(x.c, x.r);
+        if (seen.has(k)) continue;
+        seen.add(k); assert.ok(!onPath.has(k), `level ${n}: a branch leads back onto the route (not a dead end)`);
+        covered.set(k, (covered.get(k) || 0) + 1);
+        for (const y of openNeighbours(L.cells, L.cols, L.rows, x.c, x.r)) stack.push(y);
+      }
+    }
+    assert.equal(covered.size, L.cols * L.rows - L.path.length, `level ${n}: some dead-end cell has no stripe`);
+    for (const v of covered.values()) assert.equal(v, 1, `level ${n}: a cell is behind two stripes`);
+    assert.equal(mouths.filter(m => m.apple).length, L.apples.length ? 1 : 0, `level ${n}: apple branch not flagged exactly once`);
+  }
 });

@@ -75,6 +75,18 @@ How it works (`js/link.js`, `js/pad.js`): the two browsers can't find each other
 - **Minimap** (Inside view only): a round, GPS-style 3D panel at screen depth in both eyes. Your ball stays in the lower centre with its arrow pointing **up**, and the maze turns smoothly with the camera, so up on the map is always straight ahead in the 3D view. An **N** on the rim shows north, a green marker on the rim points to the goal when it's off the map, and apples, holes and gates are drawn too. Big mazes zoom to about 4.5 cells around you.
 - **🗺 Map toggle:** a small 3D icon above the minimap. Tap it in either eye's half (or press <kbd>N</kbd>) to show or hide the map. The tap never tilts the board, and the choice is remembered.
 - **Map in zoomed board views:** **Follow**, and **Auto** when it zooms in on a big maze, can't show the whole board, so they get a map too. It is **north-up**, because the camera never turns in these views, and shows the whole maze, **all three balls** in their colours and a dashed rectangle for the area currently on screen. It uses the same 🗺 icon and <kbd>N</kbd> setting. The Whole-board view and VR don't need one.
+- **Map size:** the 🗺 icon (or <kbd>N</kbd>) cycles **Off → Small → Large**.
+  - **Small** is a corner glance.
+  - **Large** fills most of the free height, so it stays readable on short screens such as a phone in landscape. Pull it up to plan a route, then tap it away.
+  - A badge on the icon shows what the next tap does (**+** enlarge, **×** close).
+
+## 🧭 Route guide (optional assist)
+Toggle it in **Controls → 🧭 Route guide**, on the pause panel (also in VR), with <kbd>G</kbd>, or from the phone controller.
+- **Green** floor tint with **arrows** along the route to the goal.
+- A **red bar + tint** across the mouth of every **dead-end** branch.
+- A **gold** bar on the one branch worth entering: the 🍎 bonus apple.
+
+It is drawn on the board, so it works in every view including Inside and VR, and on the minimaps. The mazes themselves don't change. Mazes have a single solution, so marking dead ends effectively reveals the route: **a clear with the guide used is capped at ★★**, and the clear panel says so. `routeGuide()` in `js/maze.js` is unit-tested: the arrows chain to the goal, every dead-end cell sits behind exactly one red/gold bar, and exactly one gold bar leads to the apple.
 
 ## Difficulty curve (`js/config.js`)
 | Level | What gets added |

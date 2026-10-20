@@ -142,7 +142,7 @@ export class ControlsHandler {
   /* ---------- Keyboard ---------- */
   initKeyboard() {
     const map = { ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down' };
-    const actions = { KeyP: 'pause', Escape: 'pause', KeyR: 'restart', KeyC: 'calibrate', KeyV: 'view', KeyM: 'mute', KeyN: 'map', Space: 'confirm', Enter: 'confirm' };
+    const actions = { KeyP: 'pause', Escape: 'pause', KeyR: 'restart', KeyC: 'calibrate', KeyV: 'view', KeyM: 'mute', KeyN: 'map', KeyG: 'guide', Space: 'confirm', Enter: 'confirm' };
     window.addEventListener('keydown', e => {
       if (e.target && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName) && !map[e.code]) return;
       if (map[e.code] && this.menuMode) {

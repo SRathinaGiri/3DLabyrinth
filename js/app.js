@@ -14,7 +14,7 @@ import { UIManager } from './ui.js';
 import { TVLink } from './link.js';
 
 // Buttons the phone controller may press (anything else on the data channel is ignored)
-const REMOTE_ACTIONS = new Set(['confirm', 'pause', 'focusPrev', 'focusNext', 'view', 'restart']);
+const REMOTE_ACTIONS = new Set(['confirm', 'pause', 'focusPrev', 'focusNext', 'view', 'restart', 'guide']);
 
 const DEG = Math.PI / 180;
 const PROGRESS_KEY = '3d_labyrinth_progress';
@@ -45,7 +45,7 @@ class GameApp {
     this.progress = loadProgress();
     this.look = { ...DEFAULT_LOOK }; // board surface + ball type, chosen in the menu
     this.inside = { yaw: 0, targetYaw: 0, revT: 0, vx: 0, vz: 0, back: INSIDE_VIEW.CAM_BACK };
-    this.mapOn = true; // Inside-view minimap, toggled by the 🗺 icon or N
+    this.mapMode = 'small'; // minimap: 'off' | 'small' | 'large', cycled by the 🗺 icon or N
     this.vr = { mode: 'table', pending: false, frames: 0, head: null, fwd: null, yaw: 0 };
     this.vrHud = new THREE.Group(); // floating HUD screen in VR (anchored in the room, not glued to the face)
 
@@ -101,7 +101,9 @@ class GameApp {
     const d0 = p1 ? [Math.sign(p1.c - p0.c), Math.sign(p1.r - p0.r)] : [0, -1];
     this.inside.yaw = this.inside.targetYaw = Math.atan2(d0[0], -d0[1]);
     this.inside.revT = 0; this.inside.vx = this.inside.vz = 0;
-    this.hud.setMap(this.level);
+    this.hud.setMap(this.level, this.guideOn);
+    this.board.setGuide(this.level, this.guideOn);
+    this.guideUsed = !!this.guideOn; // caps this run's rating at ★★
     this.audio.setMaterials(this.look.board, this.look.ball);
     if (this.inVR) this.applyVR();
     this.tilt.x = this.tilt.z = 0;
@@ -157,20 +159,7 @@ class GameApp {
       this.controls.resetManual();
       this.audio.stopMusic();
       this.controls.releaseWakeLock();
-      if (this.inVR) {
-        this.openDialog({
-          title: 'PAUSED', color: '#00f0ff',
-          lines: [`Level ${this.level.n} · ❤ ${this.progress.lives} ${this.progress.lives === 1 ? 'life' : 'lives'}`, 'Thumbstick to choose · trigger or A to select'],
-          buttons: [{ id: 'resume', label: '▶ Resume' }, { id: 'restart', label: '↻ Restart' }, { id: 'recenter', label: '🎯 Recenter' },
-            { id: 'vrsize', label: this.vr.mode === 'table' ? '🟫 Floor' : '🪑 Table' }, { id: 'exitvr', label: '⏏ Exit VR' }]
-        });
-        return;
-      }
-      this.openDialog({
-        title: 'PAUSED', color: '#00f0ff',
-        lines: [`Level ${this.level.n} · ❤ ${this.progress.lives} ${this.progress.lives === 1 ? 'life' : 'lives'}`, this.orientStatus].filter(Boolean),
-        buttons: [{ id: 'resume', label: '▶ Resume' }, { id: 'restart', label: '↻ Restart' }, { id: 'settings', label: '⚙ 3D' }, { id: 'menu', label: '☰ Menu' }]
-      });
+      this.openPauseDialog();
     } else if (this.state === 'PAUSED') {
       // Restart dialog dismissed without choosing: keep the view that matches the balls on the board
       if (this.ballsForView(this.viewMode) !== this.physics.balls.length && this.viewPrev) this.ui.setViewMode(this.viewPrev, true);
@@ -180,6 +169,42 @@ class GameApp {
       this.audio.startMusic();
       this.controls.requestWakeLock();
     }
+  }
+
+  /** Pause panel (also redrawn in place when its 🧭 Guide button is pressed). */
+  openPauseDialog(focus = 0) {
+    const lives = `❤ ${this.progress.lives} ${this.progress.lives === 1 ? 'life' : 'lives'}`;
+    const guide = { id: 'guide', label: this.guideOn ? '🧭 Guide ✓' : '🧭 Guide' };
+    if (this.inVR) {
+      this.openDialog({
+        title: 'PAUSED', color: '#00f0ff', focus,
+        lines: [`Level ${this.level.n} · ${lives}`, 'Thumbstick to choose · trigger or A to select'],
+        buttons: [{ id: 'resume', label: '▶ Resume' }, { id: 'restart', label: '↻ Restart' }, guide, { id: 'recenter', label: '🎯 Recenter' },
+          { id: 'vrsize', label: this.vr.mode === 'table' ? '🟫 Floor' : '🪑 Table' }, { id: 'exitvr', label: '⏏ Exit VR' }]
+      });
+      return;
+    }
+    this.openDialog({
+      title: 'PAUSED', color: '#00f0ff', focus,
+      lines: [`Level ${this.level.n} · ${lives}`, this.orientStatus].filter(Boolean),
+      buttons: [{ id: 'resume', label: '▶ Resume' }, { id: 'restart', label: '↻ Restart' }, guide, { id: 'settings', label: '⚙ 3D' }, { id: 'menu', label: '☰ Menu' }]
+    });
+  }
+
+  /**
+   * 🧭 Route guide (optional assist): green route + arrows, red stripes across dead-end branches,
+   * gold for the apple branch, on the board and the minimap. Using it during a level caps the clear at ★★.
+   */
+  toggleGuide() {
+    this.guideOn = !this.guideOn;
+    if (this.level) {
+      this.board.setGuide(this.level, this.guideOn);
+      this.hud.setMap(this.level, this.guideOn);
+      if (this.guideOn && this.state !== 'MENU') this.guideUsed = true;
+    }
+    if (this.state !== 'MENU') this.hud.showBanner(this.guideOn ? '🧭 GUIDE ON' : '🧭 GUIDE OFF', this.guideOn ? 'Follow green · red = dead end · gold = 🍎' : '', '#34ff9a', 1.4);
+    this.ui.syncGuide();
+    this.ui.saveSettings();
   }
 
   stopGame() {
@@ -248,6 +273,7 @@ class GameApp {
     // Stars: lives keep you playing but cap the rating
     let stars = falls + saves <= 2 ? 2 : 1;
     if (falls === 0 && saves === 0 && (!tl || t <= tl * 0.66)) stars = 3;
+    if (this.guideUsed) stars = Math.min(stars, 2); // ★★★ means solved without the route guide
     if (rescuedWith) stars = 1;
     const prev = this.progress.best[n];
     const isBest = !rescuedWith && (!prev || t < prev.time);
@@ -275,6 +301,7 @@ class GameApp {
     const gained = (firstClear ? LIVES.PER_NEW_LEVEL : 0) + (this.appleThisRun ? 1 : 0);
     const why = [firstClear && 'new level', this.appleThisRun && '🍎'].filter(Boolean).join(' + ');
     lines.push(`❤ ${this.progress.lives} ${this.progress.lives === 1 ? 'life' : 'lives'}${gained ? `  (+${gained} ${why})` : ''}`);
+    if (this.guideUsed && !rescuedWith) lines.push('🧭 Route guide used (max ★★)');
     this.openDialog({
       title: rescuedWith ? `LEVEL ${n} RESCUED` : `LEVEL ${n} CLEAR!`,
       color: rescuedWith ? '#ffc93c' : '#34ff9a',
@@ -345,6 +372,12 @@ class GameApp {
       case 'vrsize': this.vr.mode = this.vr.mode === 'table' ? 'floor' : 'table'; this.placeVR(); this.togglePause(); break;
       case 'exitvr': this.exitVR(); break;
       case 'settings': this.ui.showModal('pauseScreen'); break; // sliders need a real 2D form
+      case 'guide': { // toggle and redraw the pause panel in place, keeping focus on this button
+        const focus = this.hud.dialogSpec ? this.hud.dialogSpec.focus : 0;
+        this.toggleGuide();
+        this.openPauseDialog(focus);
+        break;
+      }
       case 'switchView': this.startLevel(this.level.n); break;
       case 'cancelView': this.ui.setViewMode(this.viewPrev, true); this.togglePause(); break;
     }
@@ -368,6 +401,7 @@ class GameApp {
       case 'view': if (!this.inVR) this.ui.setViewMode(this.cycleViewMode()); break; // VR has its own Table/Floor sizes
       case 'mute': this.ui.toggleMute(); break;
       case 'map': if (this.hud.mapBtn.mesh.visible) this.toggleMap(); break; // wherever the 🗺 icon is offered
+      case 'guide': this.toggleGuide(); break;
       case 'confirm':
         if (this.state === 'MENU') this.startLevel(this.progress.unlocked);
         break;
@@ -384,11 +418,15 @@ class GameApp {
     return order[(order.indexOf(this.viewMode) + 1) % order.length]; // the UI applies it (see viewChanged)
   }
 
+  /** 🗺 / N cycles the minimap: Off -> Small (corner glance) -> Large (readable, e.g. phone landscape) -> Off. */
   toggleMap() {
-    this.mapOn = !this.mapOn;
+    this.mapMode = { off: 'small', small: 'large', large: 'off' }[this.mapMode] || 'small';
+    this.hud.setMapLarge(this.mapMode === 'large');
     this.audio.playTick(false);
     this.ui.saveSettings();
   }
+
+  get mapOn() { return this.mapMode !== 'off'; }
 
   ballsForView(mode) { return mode === 'INSIDE' ? INSIDE_BALL_COUNT : BALL_COUNT; }
 
@@ -493,7 +531,7 @@ class GameApp {
     if (inside) {
       const insideHud = !this.hud.dialogVisible && this.physics.balls.length === 1;
       this.hud.setMapVisible(insideHud && this.mapOn);
-      this.hud.setMapButton(insideHud, this.mapOn);
+      this.hud.setMapButton(insideHud, this.mapMode);
       this.updateInsideCamera(dt);
       return;
     }
@@ -540,7 +578,7 @@ class GameApp {
     // map (the camera never turns here, so neither does the map) with all balls and the visible area
     const mapHud = follow && !this.hud.dialogVisible;
     this.hud.setMapVisible(mapHud && this.mapOn);
-    this.hud.setMapButton(mapHud, this.mapOn);
+    this.hud.setMapButton(mapHud, this.mapMode);
     if (mapHud && this.mapOn) {
       const t = this.cam.target, vw = this.cam.dist * Math.tan(hf), vd = this.cam.dist * Math.tan(vf) / Math.sin(CAM_PITCH);
       this.hud.updateBoardMap(this.physics.balls, dt, this.physics.apples, { x0: t.x - vw, x1: t.x + vw, z0: t.z - vd, z1: t.z + vd });

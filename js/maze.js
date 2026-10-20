@@ -236,6 +236,39 @@ export function buildLevel(n) {
 }
 
 /**
+ * Route guide (optional assist): the solution route with each cell's direction of travel, and the
+ * mouth of every side branch off it. In a perfect maze every side branch is a dead end; the branch
+ * that holds the bonus apple is flagged so it can be shown as worth entering.
+ */
+export function routeGuide(level) {
+  const { cols, rows, cells, path } = level;
+  const key = (c, r) => r * cols + c;
+  const onPath = new Set(path.map(q => key(q.c, q.r)));
+  const appleKeys = new Set((level.apples || []).map(a => key(a.c, a.r)));
+  const route = path.map((q, i) => {
+    const n = path[i + 1];
+    return { c: q.c, r: q.r, dc: n ? n.c - q.c : 0, dr: n ? n.r - q.r : 0 };
+  });
+  const mouths = [];
+  for (const q of path) {
+    for (const nb of openNeighbours(cells, cols, rows, q.c, q.r)) {
+      if (onPath.has(key(nb.c, nb.r))) continue;
+      let apple = false;
+      const seen = new Set([key(q.c, q.r)]), stack = [nb];
+      while (stack.length) {
+        const x = stack.pop(), k = key(x.c, x.r);
+        if (seen.has(k)) continue;
+        seen.add(k);
+        if (appleKeys.has(k)) apple = true;
+        for (const y of openNeighbours(cells, cols, rows, x.c, x.r)) if (!seen.has(key(y.c, y.r))) stack.push(y);
+      }
+      mouths.push({ c: q.c, r: q.r, nc: nb.c, nr: nb.r, apple });
+    }
+  }
+  return { route, mouths };
+}
+
+/**
  * Where a life-saved ball lands after hopping out of `hole`: the first safe cell
  * on the shortest route from the hole's cell towards the goal (never the goal
  * itself, never a gate cell or a cell whose centre is a hole).

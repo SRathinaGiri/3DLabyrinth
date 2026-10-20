@@ -6,6 +6,7 @@
 
 import { BOARD, BALL_COLORS, DEFAULT_LOOK } from './config.js';
 import { boardLook, ballMaterial, makeEnvironment } from './materials.js';
+import { routeGuide, cellCenter } from './maze.js';
 
 export class BoardView {
   constructor(scene, renderer) {
@@ -219,6 +220,62 @@ export class BoardView {
     Object.assign(this.sun.shadow.camera, { left: -ext, right: ext, top: ext, bottom: -ext, near: 1, far: ext * 5 });
     this.sun.shadow.camera.updateProjectionMatrix();
     this.extent = { W, H };
+  }
+
+  /**
+   * Route guide overlay (optional assist): green tint + arrows along the route to the goal, a red stripe
+   * across the mouth of every dead-end branch, gold for the branch that holds the bonus apple.
+   * Painted just above the floor, so it shows in every view, including Inside and VR.
+   */
+  setGuide(level, on) {
+    if (this.guideGroup) {
+      this.boardGroup.remove(this.guideGroup);
+      this.guideGroup.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
+      this.guideGroup = null;
+    }
+    if (!on || !level) return;
+    const { CELL, WALL_T } = BOARD, { route, mouths } = routeGuide(level);
+    const grp = this.guideGroup = new THREE.Group();
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(1, 1, 1), p = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
+    const basic = (color, opacity) => new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false });
+
+    const tileGeo = new THREE.PlaneGeometry(CELL - WALL_T, CELL - WALL_T).rotateX(-Math.PI / 2);
+    const tiles = new THREE.InstancedMesh(tileGeo, basic(0x34ff9a, 0.16), route.length);
+    // Chevron pointing "north" (-z) in its own frame; each instance is turned to the travel direction
+    const sh = new THREE.Shape();
+    sh.moveTo(0, 0.45); sh.lineTo(0.38, 0.02); sh.lineTo(0.22, 0.02); sh.lineTo(0, 0.26); sh.lineTo(-0.22, 0.02); sh.lineTo(-0.38, 0.02); sh.closePath();
+    const arrowGeo = new THREE.ShapeGeometry(sh).rotateX(-Math.PI / 2);
+    const arrows = new THREE.InstancedMesh(arrowGeo, basic(0x34ff9a, 0.7), route.length);
+    route.forEach((cell, i) => {
+      const c = cellCenter(level, cell.c, cell.r);
+      tiles.setMatrixAt(i, m.compose(p.set(c.x, 0.008, c.z), q.identity(), s));
+      const yaw = cell.dc || cell.dr ? Math.atan2(-cell.dc, -cell.dr) : 0;
+      arrows.setMatrixAt(i, m.compose(p.set(c.x, 0.012, c.z), q.setFromAxisAngle(up, yaw), (cell.dc || cell.dr) ? s : new THREE.Vector3(0, 0, 0)));
+    });
+
+    // A bold bar across each branch opening (on the cell boundary) plus a tint just inside the branch,
+    // so "dead end" reads clearly even next to bright neon walls
+    const stripeGeo = new THREE.PlaneGeometry(CELL - WALL_T, 0.3).rotateX(-Math.PI / 2);
+    const tintGeo = new THREE.PlaneGeometry(CELL - WALL_T, CELL * 0.45).rotateX(-Math.PI / 2);
+    const red = mouths.filter(x => !x.apple), gold = mouths.filter(x => x.apple);
+    const stripes = (list, color) => {
+      const bar = new THREE.InstancedMesh(stripeGeo.clone(), basic(color, 1), Math.max(1, list.length));
+      const tint = new THREE.InstancedMesh(tintGeo.clone(), basic(color, 0.28), Math.max(1, list.length));
+      bar.count = tint.count = list.length;
+      list.forEach((mo, i) => {
+        const a = cellCenter(level, mo.c, mo.r), b = cellCenter(level, mo.nc, mo.nr);
+        const yaw = mo.nc !== mo.c ? Math.PI / 2 : 0; // opening to the east/west: stripe runs north-south
+        q.setFromAxisAngle(up, yaw);
+        bar.setMatrixAt(i, m.compose(p.set((a.x + b.x) / 2, 0.016, (a.z + b.z) / 2), q, s));
+        // tint centred a quarter-cell into the branch
+        const t = 0.5 + 0.225;
+        tint.setMatrixAt(i, m.compose(p.set(a.x + (b.x - a.x) * t, 0.01, a.z + (b.z - a.z) * t), q, s));
+      });
+      return [bar, tint];
+    };
+    grp.add(tiles, arrows, ...stripes(red, 0xff3b5c), ...stripes(gold, 0xffc93c));
+    stripeGeo.dispose(); tintGeo.dispose();
+    this.boardGroup.add(grp);
   }
 
   /** Confetti burst over the goal (first clear of a level). */
