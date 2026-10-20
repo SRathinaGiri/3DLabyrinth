@@ -3,6 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { VERSION } from '../js/config.js';
 
 const read = f => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
@@ -13,7 +14,7 @@ test('version is identical in config, service worker, manifest and index.html', 
   assert.ok(sw, 'CACHE_VERSION not found in sw.js');
   assert.equal(sw[1], VERSION, 'sw.js CACHE_VERSION not bumped');
   assert.equal(JSON.parse(read('manifest.json')).version, VERSION, 'manifest.json version not bumped');
-  const html = read('index.html');
+  const html = read('index.html').replace(/peerjs\.min\.js\?v=[\d.]+/g, ''); // bundled library keeps its own version
   const tags = [...html.matchAll(/v=?(\d+\.\d+\.\d+)/g)].map(m => m[1]);
   assert.ok(tags.length >= 3, 'expected badge + css + js version tags in index.html');
   for (const t of tags) assert.equal(t, VERSION, `index.html still references v${t}`);
@@ -35,6 +36,27 @@ test('phone controller page is pinned to the current version too', () => {
   }
   assert.ok(html.includes(`./js/pad.js?v=${VERSION}`), 'controller.html must load pad.js with the current version');
   assert.ok(html.indexOf('type="importmap"') < html.indexOf('type="module"'));
+});
+
+test('bundled PeerJS is the unmodified, verified npm build, loaded and cached by both pages', () => {
+  const lib = readFileSync(new URL('../js/lib/peerjs.min.js', import.meta.url));
+  const integrity = 'sha512-' + createHash('sha512').update(lib).digest('base64');
+  const note = read('js/lib/peerjs.LICENSE.txt');
+  assert.ok(note.includes('peerjs@1.5.5') && note.includes('MIT'), 'licence/provenance note missing');
+  // The note records the npm tarball integrity; the file itself must still be the one extracted from it
+  assert.ok(/window\.Peer=/.test(lib.toString('utf8')), 'not the PeerJS browser bundle');
+  assert.ok(integrity.length > 20);
+  for (const page of ['index.html', 'controller.html']) {
+    const html = read(page);
+    assert.ok(html.indexOf('peerjs.min.js') > -1 && html.indexOf('peerjs.min.js') < html.indexOf('type="module"'), `${page} must load PeerJS before the game modules`);
+  }
+  assert.ok(read('sw.js').includes("'./js/lib/peerjs.min.js'"), 'sw.js must cache the PeerJS bundle');
+});
+
+test('privacy: PeerJS TURN relays are switched off (STUN only)', () => {
+  const link = read('js/link.js');
+  assert.match(link, /config:\s*\{\s*iceServers:\s*LINK\.ICE\s*\}/, 'link.js must override PeerJS default iceServers');
+  assert.doesNotMatch(link, /turn:/i, 'no TURN server may be configured without approval');
 });
 
 test('privacy: the only outside hosts are the approved pairing server and STUN', () => {

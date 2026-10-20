@@ -4,16 +4,17 @@
 
    Browsers cannot discover each other on a LAN, so the two pages are
    introduced once through the free public PeerJS signalling server
-   (0.peerjs.com), using its plain WebSocket protocol (no PeerJS library).
-   Only the connection handshake passes through it; game data then flows
-   directly between the devices. Use of this service was approved by the
-   project owner on 2026-10-20. STUN (Google) only helps the devices learn
-   how to reach each other and never sees game data.
+   (0.peerjs.com) using the official PeerJS client (js/lib/peerjs.min.js,
+   v1.5.5, MIT - see js/lib/peerjs.LICENSE.txt). Only the connection
+   handshake passes through it; game data then flows directly between the
+   devices. Use of this service was approved by the project owner on
+   2026-10-20. STUN (Google) only helps the devices learn how to reach each
+   other. PeerJS's default TURN relays are deliberately NOT used (they would
+   carry game data through a third party), so iceServers is overridden.
    ========================================================================== */
 
 export const LINK = {
   HOST: '0.peerjs.com',
-  KEY: 'peerjs',
   PREFIX: 'lab3d-v1-',                                   // namespaced ids on the shared public server
   ICE: [{ urls: 'stun:stun.l.google.com:19302' }],
   CONNECT_TIMEOUT_MS: 20000   // finding a direct route (incl. resolving the browsers' private .local names) can take a while
@@ -21,159 +22,113 @@ export const LINK = {
 
 const rand = n => Array.from(crypto.getRandomValues(new Uint8Array(n)), b => (b % 36).toString(36)).join('');
 
-/** Minimal client for the PeerJS signalling server: register an id, relay OFFER / ANSWER / CANDIDATE. */
-class Signal {
-  constructor(id, onMessage) { this.id = id; this.onMessage = onMessage; this.ws = null; this.hb = null; }
-
-  open() {
-    return new Promise((resolve, reject) => {
-      const url = `wss://${LINK.HOST}/peerjs?key=${LINK.KEY}&id=${encodeURIComponent(this.id)}&token=${rand(10)}&version=1.5.4`;
-      let settled = false;
-      const ws = this.ws = new WebSocket(url);
-      ws.onmessage = e => {
-        let m; try { m = JSON.parse(e.data); } catch (_) { return; }
-        if (m.type === 'OPEN') { settled = true; resolve(); }
-        else if (m.type === 'ID-TAKEN') { settled = true; reject(new Error('ID-TAKEN')); }
-        else if (m.type === 'ERROR' && !settled) { settled = true; reject(new Error((m.payload && m.payload.msg) || 'Pairing server error')); }
-        else this.onMessage(m);
-      };
-      ws.onerror = () => { if (!settled) { settled = true; reject(new Error('Cannot reach the pairing service (internet needed for pairing)')); } };
-      ws.onclose = () => clearInterval(this.hb);
-      this.hb = setInterval(() => { if (ws.readyState === 1) ws.send(JSON.stringify({ type: 'HEARTBEAT' })); }, 5000);
-    });
-  }
-
-  send(type, dst, payload) { if (this.ws && this.ws.readyState === 1) this.ws.send(JSON.stringify({ type, dst, payload })); }
-
-  close() { clearInterval(this.hb); if (this.ws) { try { this.ws.close(); } catch (_) { /* already closed */ } } this.ws = null; }
+function makePeer(id) {
+  if (typeof window.Peer !== 'function') throw new Error('Pairing library missing: reload the page');
+  return new window.Peer(id, {
+    host: LINK.HOST, port: 443, secure: true, path: '/', key: 'peerjs',
+    config: { iceServers: LINK.ICE },  // STUN only: no TURN relay
+    debug: 1
+  });
 }
 
-/** Shared WebRTC plumbing: one reliable data channel carrying small JSON messages. */
-class Peer {
-  constructor(signal, remoteId, onMessage, onState) {
-    this.signal = signal; this.remoteId = remoteId; this.onMessage = onMessage; this.onState = onState;
-    this.pc = new RTCPeerConnection({ iceServers: LINK.ICE });
-    this.dc = null; this.pending = [];
-    this.pc.onicecandidate = e => { if (e.candidate) signal.send('CANDIDATE', remoteId, { candidate: e.candidate.toJSON() }); };
-    this.pc.onconnectionstatechange = () => {
-      const s = this.pc.connectionState;
-      if (s === 'failed') this.onState('failed'); // the devices met via the pairing server but no direct route worked
-      else if (s === 'closed' || s === 'disconnected') this.onState('lost');
-    };
-  }
+/** Resolve when the PeerJS client has registered its id with the server (never wait forever). */
+function whenOpen(peer, ms = 10000) {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => { cleanup(); reject(Object.assign(new Error('timeout'), { type: 'network' })); }, ms);
+    const cleanup = () => { clearTimeout(t); peer.off('open', onOpen); peer.off('error', onErr); };
+    const onErr = err => { cleanup(); reject(err); };
+    const onOpen = () => { cleanup(); resolve(); };
+    peer.on('open', onOpen);
+    peer.on('error', onErr);
+  });
+}
 
-  bind(dc) {
-    this.dc = dc;
-    dc.onopen = () => this.onState('connected');
-    dc.onclose = () => this.onState('lost');
-    dc.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (_) { return; } this.onMessage(m); };
-  }
+const friendly = err => {
+  if (!err) return 'Unknown pairing error';
+  if (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error') return 'Cannot reach the pairing service (internet needed for pairing)';
+  if (err.type === 'browser-incompatible') return 'This browser cannot make direct connections (WebRTC missing)';
+  return err.message || String(err);
+};
 
-  async addCandidate(c) {
-    if (!this.pc.remoteDescription) { this.pending.push(c); return; }
-    try { await this.pc.addIceCandidate(c); } catch (err) { console.warn('[Link] candidate:', err.message); }
-  }
-
-  async flush() { for (const c of this.pending.splice(0)) await this.addCandidate(c); }
-
-  send(obj) { if (this.dc && this.dc.readyState === 'open') this.dc.send(JSON.stringify(obj)); }
-
-  close() { try { this.dc && this.dc.close(); } catch (_) { /* closed */ } try { this.pc.close(); } catch (_) { /* closed */ } }
+/** Wire a DataConnection's events to the link callbacks. */
+function bindConn(conn, onMessage, onStatus) {
+  conn.on('open', () => onStatus('connected'));
+  conn.on('data', m => { if (m && typeof m === 'object') onMessage(m); });
+  conn.on('close', () => onStatus('lost'));
+  conn.on('iceStateChanged', s => { if (s === 'failed') onStatus('failed'); else if (s === 'disconnected') onStatus('lost'); });
 }
 
 /**
  * TV / game side: registers a random 4-digit code and waits for a phone to call it.
- * A newer phone replaces an older one. onStatus: 'waiting' | 'connected' | 'lost' | 'error:<msg>'.
+ * A newer phone replaces an older one. onStatus: 'waiting' | 'phone' | 'connected' | 'lost' | 'failed'.
  */
 export class TVLink {
-  constructor({ onMessage, onStatus }) { this.onMessage = onMessage; this.onStatus = onStatus; this.peer = null; this.signal = null; this.code = null; }
+  constructor({ onMessage, onStatus }) { this.onMessage = onMessage; this.onStatus = onStatus; this.peer = null; this.conn = null; this.code = null; }
 
   async start() {
     for (let attempt = 0; attempt < 5; attempt++) {
       const code = String(Math.floor(1000 + Math.random() * 9000));
-      const signal = new Signal(LINK.PREFIX + code, m => this.handle(m));
+      const peer = makePeer(LINK.PREFIX + code);
       try {
-        await signal.open();
-        this.signal = signal; this.code = code;
-        this.onStatus('waiting');
-        return code;
+        await whenOpen(peer);
       } catch (err) {
-        signal.close();
-        if (err.message !== 'ID-TAKEN') throw err; // another game is using this code: pick another
+        peer.destroy();
+        if (err.type === 'unavailable-id') continue; // another game is using this code: pick another
+        throw new Error(friendly(err));
       }
+      this.peer = peer; this.code = code;
+      peer.on('connection', conn => {
+        if (this.conn) this.conn.close();
+        this.conn = conn;
+        this.onStatus('phone'); // a phone called this code; next comes the direct connection
+        bindConn(conn, m => this.onMessage(m), s => { if (this.conn === conn) this.onStatus(s); });
+      });
+      peer.on('disconnected', () => { if (!peer.destroyed) peer.reconnect(); }); // keep the code registered
+      peer.on('error', err => console.warn('[Link] TV:', err.type, err.message));
+      this.onStatus('waiting');
+      return code;
     }
     throw new Error('Could not get a free pairing code, try again');
   }
 
-  async handle(m) {
-    if (m.type === 'OFFER' && m.payload && m.payload.sdp) {
-      if (this.peer) this.peer.close();
-      const peer = this.peer = new Peer(this.signal, m.src, msg => this.onMessage(msg), s => { if (this.peer === peer) this.onStatus(s); });
-      this.onStatus('phone'); // stage 2: a phone called this code; next comes the direct connection
-      peer.pc.ondatachannel = e => peer.bind(e.channel);
-      await peer.pc.setRemoteDescription(m.payload.sdp);
-      await peer.flush();
-      const answer = await peer.pc.createAnswer();
-      await peer.pc.setLocalDescription(answer);
-      this.signal.send('ANSWER', m.src, { sdp: { type: answer.type, sdp: answer.sdp } });
-    } else if (m.type === 'CANDIDATE' && this.peer && m.src === this.peer.remoteId && m.payload) {
-      await this.peer.addCandidate(m.payload.candidate);
-    }
-  }
-
-  send(obj) { if (this.peer) this.peer.send(obj); }
-  get connected() { return !!(this.peer && this.peer.dc && this.peer.dc.readyState === 'open'); }
-  stop() { if (this.peer) this.peer.close(); if (this.signal) this.signal.close(); this.peer = this.signal = null; }
+  send(obj) { if (this.conn && this.conn.open) this.conn.send(obj); }
+  get connected() { return !!(this.conn && this.conn.open); }
+  stop() { if (this.conn) this.conn.close(); if (this.peer) this.peer.destroy(); this.conn = this.peer = null; }
 }
 
-/** Phone side: calls the TV that registered `code`. */
+/** Phone side: calls the TV that registered `code`. onStatus: 'answered' | 'connected' | 'lost' | 'failed'. */
 export class PadLink {
-  constructor({ onMessage, onStatus }) { this.onMessage = onMessage; this.userStatus = onStatus; this.peer = null; this.signal = null; this.resolveOpen = null; }
-
-  status(s) {
-    if (s === 'connected' && this.resolveOpen) { this.resolveOpen(); this.resolveOpen = null; }
-    if (s === 'failed' && this.rejectOpen) { this.rejectOpen(); return; } // report it now instead of after the timeout
-    this.userStatus(s);
-  }
+  constructor({ onMessage, onStatus }) { this.onMessage = onMessage; this.userStatus = onStatus; this.peer = null; this.conn = null; }
 
   async connect(code) {
     this.stop();
     const tvId = LINK.PREFIX + code;
-    const signal = this.signal = new Signal(`${tvId}-pad-${rand(6)}`, m => this.handle(m));
-    await signal.open();
-    const peer = this.peer = new Peer(signal, tvId, msg => this.onMessage(msg), s => { if (this.peer === peer) this.status(s); });
-    peer.bind(peer.pc.createDataChannel('pad'));
-    const offer = await peer.pc.createOffer();
-    await peer.pc.setLocalDescription(offer);
-    signal.send('OFFER', tvId, { sdp: { type: offer.type, sdp: offer.sdp } });
-    // No answer in time = no game is showing that code (or it was mistyped)
-    this.gotAnswer = false;
+    const peer = this.peer = makePeer(`${tvId}-pad-${rand(6)}`);
+    try { await whenOpen(peer); } catch (err) { this.stop(); throw new Error(friendly(err)); }
     return new Promise((resolve, reject) => {
-      // Say WHICH stage failed: nobody answered the code, or the screen answered but no direct route worked
-      const fail = () => {
-        this.resolveOpen = null; this.rejectOpen = null; clearTimeout(t);
-        reject(new Error(this.gotAnswer
-          ? 'Found the game, but this phone and the screen could not connect directly. Check both are on the same Wi-Fi (phone not on mobile data, no VPN), and that it is not a guest network that blocks devices talking to each other.'
-          : `No game found with code ${code}. Check the code on the screen, and that the game there shows "Waiting for the phone".`));
+      let answered = false, settled = false;
+      const done = (err) => {
+        if (settled) return;
+        settled = true; clearTimeout(t);
+        if (err) { this.stop(); reject(err); } else resolve();
       };
-      const t = setTimeout(fail, LINK.CONNECT_TIMEOUT_MS);
-      this.resolveOpen = () => { clearTimeout(t); this.rejectOpen = null; resolve(); };
-      this.rejectOpen = fail;
-    });
+      const noGame = () => new Error(`No game found with code ${code}. Check the code on the screen, and that the game there shows "Waiting for the phone".`);
+      const noRoute = () => new Error('Found the game, but this phone and the screen could not connect directly. Check both are on the same Wi-Fi (phone not on mobile data, no VPN), and that it is not a guest network that blocks devices talking to each other.');
+      const t = setTimeout(() => done(answered ? noRoute() : noGame()), LINK.CONNECT_TIMEOUT_MS);
+      // The server says straight away when nobody is registered under that code
+      peer.on('error', err => { if (err.type === 'peer-unavailable') done(noGame()); else if (!settled) done(new Error(friendly(err))); });
+      const conn = this.conn = peer.connect(tvId, { reliable: true, serialization: 'json', label: 'pad' });
+      bindConn(conn, m => this.onMessage(m), s => {
+        if (this.conn !== conn) return;
+        if (s === 'connected') done();
+        if (s === 'failed' && !settled) { done(noRoute()); return; }
+        if (settled) this.userStatus(s);
+      });
+      // ICE "checking" means the screen answered: we found the game, now finding a direct route
+      conn.on('iceStateChanged', s => { if (s === 'checking' && !answered) { answered = true; this.userStatus('answered'); } });
+    }).then(() => this.userStatus('connected'));
   }
 
-  async handle(m) {
-    if (!this.peer || m.src !== this.peer.remoteId) return;
-    if (m.type === 'ANSWER' && m.payload && m.payload.sdp) {
-      this.gotAnswer = true;
-      this.userStatus('answered'); // stage 2 done: the screen replied
-      await this.peer.pc.setRemoteDescription(m.payload.sdp);
-      await this.peer.flush();
-    } else if (m.type === 'CANDIDATE' && m.payload) {
-      await this.peer.addCandidate(m.payload.candidate);
-    }
-  }
-
-  send(obj) { if (this.peer) this.peer.send(obj); }
-  stop() { if (this.peer) this.peer.close(); if (this.signal) this.signal.close(); this.peer = this.signal = null; }
+  send(obj) { if (this.conn && this.conn.open) this.conn.send(obj); }
+  stop() { if (this.conn) this.conn.close(); if (this.peer) this.peer.destroy(); this.conn = this.peer = null; }
 }

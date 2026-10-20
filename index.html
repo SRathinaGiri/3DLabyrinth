@@ -12,9 +12,11 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Labyrinth3D">
-  <link rel="stylesheet" href="./css/styles.css?v=1.11.1">
+  <link rel="stylesheet" href="./css/styles.css?v=1.12.0">
   <!-- Three.js r128, bundled locally so the PWA works fully offline -->
   <script src="./js/lib/three.min.js"></script>
+  <!-- PeerJS 1.5.5 (MIT, bundled locally): phone-controller pairing only. See js/lib/peerjs.LICENSE.txt -->
+  <script src="./js/lib/peerjs.min.js?v=1.5.5"></script>
 </head>
 <body>
 
@@ -28,7 +30,7 @@
           <circle cx="6" cy="12" r="1.8" fill="#ffc93c" stroke="none"/>
         </svg>
         <span>3D Labyrinth</span>
-        <span class="version-badge">v1.11.1</span>
+        <span class="version-badge">v1.12.0</span>
       </div>
       <div class="header-controls">
         <button class="icon-btn install-btn" id="installBtn" style="display:none" title="Install as an app on this device">📲 Install app</button>
@@ -243,20 +245,20 @@
   <script type="importmap">
   {
     "imports": {
-      "./js/config.js": "./js/config.js?v=1.11.1",
-      "./js/maze.js": "./js/maze.js?v=1.11.1",
-      "./js/physics.js": "./js/physics.js?v=1.11.1",
-      "./js/renderer.js": "./js/renderer.js?v=1.11.1",
-      "./js/board.js": "./js/board.js?v=1.11.1",
-      "./js/materials.js": "./js/materials.js?v=1.11.1",
-      "./js/controls.js": "./js/controls.js?v=1.11.1",
-      "./js/hud3d.js": "./js/hud3d.js?v=1.11.1",
-      "./js/audio.js": "./js/audio.js?v=1.11.1",
-      "./js/ui.js": "./js/ui.js?v=1.11.1",
-      "./js/link.js": "./js/link.js?v=1.11.1"
+      "./js/config.js": "./js/config.js?v=1.12.0",
+      "./js/maze.js": "./js/maze.js?v=1.12.0",
+      "./js/physics.js": "./js/physics.js?v=1.12.0",
+      "./js/renderer.js": "./js/renderer.js?v=1.12.0",
+      "./js/board.js": "./js/board.js?v=1.12.0",
+      "./js/materials.js": "./js/materials.js?v=1.12.0",
+      "./js/controls.js": "./js/controls.js?v=1.12.0",
+      "./js/hud3d.js": "./js/hud3d.js?v=1.12.0",
+      "./js/audio.js": "./js/audio.js?v=1.12.0",
+      "./js/ui.js": "./js/ui.js?v=1.12.0",
+      "./js/link.js": "./js/link.js?v=1.12.0"
     }
   }
   </script>
-  <script type="module" src="./js/app.js?v=1.11.1"></script>
+  <script type="module" src="./js/app.js?v=1.12.0"></script>
 </body>
 </html>

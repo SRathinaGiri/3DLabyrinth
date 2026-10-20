@@ -57,10 +57,10 @@ async function connect() {
   const gyroOk = await controls.enableGyro();
   $('gyroHint').textContent = gyroOk ? 'Tilt the phone to tilt the board (or drag in the circle)' : 'No motion sensor: drag in the circle to tilt';
   controls.requestWakeLock();
-  try {
-    if (document.fullscreenEnabled && !document.fullscreenElement) await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
-    if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('portrait');
-  } catch (_) { /* best effort: the phone's own rotation lock also works */ }
+  // Best effort and never awaited: some browsers never settle the full-screen promise, and the
+  // connection must not wait on it (the phone's own rotation lock also works)
+  const fs = document.fullscreenEnabled && !document.fullscreenElement ? document.documentElement.requestFullscreen({ navigationUI: 'hide' }) : Promise.resolve();
+  fs.then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock('portrait')).catch(() => {});
   try {
     await link.connect(code);
     controls.calibrate(); // hold the phone comfortably: that is "flat"
