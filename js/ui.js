@@ -42,6 +42,8 @@ export class UIManager {
     const el = $('linkStatus'), btn = $('phonePadBtn');
     const text = {
       starting: '⏳ Getting a code…', waiting: '⏳ Waiting for the phone…', connected: '✅ Phone connected: tilt it to play',
+      phone: '📲 Phone found · connecting directly over Wi-Fi…',
+      failed: '⚠ The phone found this screen but could not connect directly. Same Wi-Fi? Guest networks often block devices talking to each other.',
       lost: '⚠ Phone disconnected: enter the code again on the phone', off: ''
     }[s] ?? (s.startsWith('error:') ? `⚠ ${s.slice(6)}` : '');
     if (el) el.textContent = text;

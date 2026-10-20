@@ -16,7 +16,7 @@ export const LINK = {
   KEY: 'peerjs',
   PREFIX: 'lab3d-v1-',                                   // namespaced ids on the shared public server
   ICE: [{ urls: 'stun:stun.l.google.com:19302' }],
-  CONNECT_TIMEOUT_MS: 12000
+  CONNECT_TIMEOUT_MS: 20000   // finding a direct route (incl. resolving the browsers' private .local names) can take a while
 };
 
 const rand = n => Array.from(crypto.getRandomValues(new Uint8Array(n)), b => (b % 36).toString(36)).join('');
@@ -57,7 +57,8 @@ class Peer {
     this.pc.onicecandidate = e => { if (e.candidate) signal.send('CANDIDATE', remoteId, { candidate: e.candidate.toJSON() }); };
     this.pc.onconnectionstatechange = () => {
       const s = this.pc.connectionState;
-      if (s === 'failed' || s === 'closed' || s === 'disconnected') this.onState('lost');
+      if (s === 'failed') this.onState('failed'); // the devices met via the pairing server but no direct route worked
+      else if (s === 'closed' || s === 'disconnected') this.onState('lost');
     };
   }
 
@@ -108,6 +109,7 @@ export class TVLink {
     if (m.type === 'OFFER' && m.payload && m.payload.sdp) {
       if (this.peer) this.peer.close();
       const peer = this.peer = new Peer(this.signal, m.src, msg => this.onMessage(msg), s => { if (this.peer === peer) this.onStatus(s); });
+      this.onStatus('phone'); // stage 2: a phone called this code; next comes the direct connection
       peer.pc.ondatachannel = e => peer.bind(e.channel);
       await peer.pc.setRemoteDescription(m.payload.sdp);
       await peer.flush();
@@ -130,6 +132,7 @@ export class PadLink {
 
   status(s) {
     if (s === 'connected' && this.resolveOpen) { this.resolveOpen(); this.resolveOpen = null; }
+    if (s === 'failed' && this.rejectOpen) { this.rejectOpen(); return; } // report it now instead of after the timeout
     this.userStatus(s);
   }
 
@@ -144,15 +147,26 @@ export class PadLink {
     await peer.pc.setLocalDescription(offer);
     signal.send('OFFER', tvId, { sdp: { type: offer.type, sdp: offer.sdp } });
     // No answer in time = no game is showing that code (or it was mistyped)
+    this.gotAnswer = false;
     return new Promise((resolve, reject) => {
-      const t = setTimeout(() => { this.resolveOpen = null; reject(new Error(`No game found with code ${code}. Check the code on the TV.`)); }, LINK.CONNECT_TIMEOUT_MS);
-      this.resolveOpen = () => { clearTimeout(t); resolve(); };
+      // Say WHICH stage failed: nobody answered the code, or the screen answered but no direct route worked
+      const fail = () => {
+        this.resolveOpen = null; this.rejectOpen = null; clearTimeout(t);
+        reject(new Error(this.gotAnswer
+          ? 'Found the game, but this phone and the screen could not connect directly. Check both are on the same Wi-Fi (phone not on mobile data, no VPN), and that it is not a guest network that blocks devices talking to each other.'
+          : `No game found with code ${code}. Check the code on the screen, and that the game there shows "Waiting for the phone".`));
+      };
+      const t = setTimeout(fail, LINK.CONNECT_TIMEOUT_MS);
+      this.resolveOpen = () => { clearTimeout(t); this.rejectOpen = null; resolve(); };
+      this.rejectOpen = fail;
     });
   }
 
   async handle(m) {
     if (!this.peer || m.src !== this.peer.remoteId) return;
     if (m.type === 'ANSWER' && m.payload && m.payload.sdp) {
+      this.gotAnswer = true;
+      this.userStatus('answered'); // stage 2 done: the screen replied
       await this.peer.pc.setRemoteDescription(m.payload.sdp);
       await this.peer.flush();
     } else if (m.type === 'CANDIDATE' && m.payload) {

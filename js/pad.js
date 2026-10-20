@@ -19,8 +19,9 @@ let connected = false, lastSend = 0, lastTime = 0;
 const link = new PadLink({
   onMessage: m => { if (m && m.t === 'state') showState(m); },
   onStatus: s => {
+    if (s === 'answered') setStatus('✅ Found the game · connecting directly over Wi-Fi…');
     if (s === 'connected') { connected = true; showPad(true); setStatus(''); }
-    if (s === 'lost') { connected = false; showPad(false); setStatus('⚠ Lost the connection. Enter the code again.'); }
+    if (s === 'lost' || s === 'failed') { connected = false; showPad(false); setStatus('⚠ Lost the connection. Enter the code again.'); }
   }
 });
 
