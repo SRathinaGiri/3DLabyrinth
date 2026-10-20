@@ -7,3 +7,6 @@ scratch/
 Thumbs.db
 .claude/
 node_modules/
+
+# Promo capture output (frames, mp4, gifs)
+tools/promo/out/
