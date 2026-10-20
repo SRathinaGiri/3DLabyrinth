@@ -33,7 +33,7 @@ export class UIManager {
     const url = new URL('controller.html', location.href);
     url.search = ''; url.hash = '';
     $('linkUrl').textContent = url.href;
-    $('linkCode').textContent = code || '····';
+    $('linkCode').textContent = code || '······';
     $('linkPanel').classList.remove('hidden');
     this.setLinkStatus(status);
   }

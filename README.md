@@ -10,7 +10,7 @@ Sister project of [3D Tunnel Rush](https://github.com/SRathinaGiri/3DTunnelRush)
 - **3D modes**: 2D, Parallel SBS, Cross-Eye SBS, Anaglyph (red/cyan), Smart-Glasses HSBS (RayNeo / XREAL / Rokid / TCL) and WebXR VR.
 - **Auto stereo**: eye separation and the focal plane scale with camera distance, so depth feels the same on a 5×5 board and a 16×16 board. The HUD sits on the zero-parallax plane.
 - **Camera**: Auto (switches to follow-cam when the cells would get too small), Whole board, or Follow balls.
-- **Offline PWA**: three.js r128 is bundled locally, sound is synthesised with the Web Audio API, and there are no external requests.
+- **Offline PWA**: three.js r128 is bundled locally and sound is synthesised with the Web Audio API, so **gameplay makes no external requests and works offline**. The one exception is the optional **📲 Phone controller**: pairing needs internet for the initial handshake (PeerJS signalling + Google STUN, see below). After that, play data goes directly between your devices.
 
 ## Boards & balls (`js/config.js` → `BOARD_SURFACES`, `BALL_TYPES`)
 Pick them in the menu. Each one changes both the look and the physics.
@@ -59,11 +59,13 @@ The glasses are a display for your phone, so **the phone in your hand is the con
 
 ## 📲 Phone as controller (TV, Google TV + glasses)
 Run the game on a big screen (e.g. a TV browser feeding RayNeo glasses over HDMI) and steer by tilting your phone:
-1. In the game: **Controls → 📲 Phone controller**. It shows a 4-digit code and the controller address (`…/controller.html`).
+1. In the game: **Controls → 📲 Phone controller**. It shows a 6-digit code and the controller address (`…/controller.html`).
 2. On a phone on the **same Wi-Fi** (a phone hotspot works), open that address, type the code and tap **Connect**.
 3. Tilt the phone to tilt the board, or drag in the circle. **OK / ◀ ▶** drive the 3D panels, **⏸** pauses, and **🎯 Re-level** sets "flat". The phone shows the level, time, balls home and lives.
 
 How it works (`js/link.js`, `js/pad.js`): the two browsers can't find each other on a LAN by themselves, so they are introduced once through the free public **PeerJS signalling server** (`0.peerjs.com`), using the official **PeerJS client 1.5.5** (MIT). It is bundled unmodified as `js/lib/peerjs.min.js`, with provenance and licence in `js/lib/peerjs.LICENSE.txt`. A hand-written version of the protocol was rejected by the server, hence the library. After pairing, a WebRTC data channel carries tilt (~30/s) and button presses **directly between the devices**. PeerJS's default TURN relays are overridden (STUN only), so game data never passes through a third party. Google's public STUN server only helps them find a route. The use of both was approved on 2026-10-20, and `tests/version.test.mjs` fails if any other outside host appears in the code. Only whitelisted button actions are accepted, and if tilt messages stop for 0.5 s the board levels out.
+
+**Security note:** the 6-digit code (cryptographically random, 900,000 possibilities) is convenience pairing, not strong authentication. Someone who guessed an *active* code could steer your game while the pairing panel is open, which is acceptable for a game. A newer phone replaces an older one, and **Disconnect** on the screen closes the code.
 
 ## Inside view (1 ball) & minimap
 - **🧍 Inside view** (🎥 button cycles Auto → Whole board → Follow → Inside, or press <kbd>V</kbd>): a chase camera at ball height. Walls are drawn **3.2× taller** in this view only, so the corridors tower around you; the physics doesn't change.

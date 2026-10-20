@@ -50,7 +50,7 @@ function showState(m) {
 
 async function connect() {
   const code = $('codeInput').value.trim();
-  if (!/^\d{4}$/.test(code)) { setStatus('Enter the 4-digit code shown on the TV.'); return; }
+  if (!/^\d{6}$/.test(code)) { setStatus('Enter the 6-digit code shown on the screen.'); return; }
   $('connectBtn').disabled = true;
   setStatus('⏳ Connecting…');
   // Inside the tap: motion permission (iOS), keep the screen on, and stop the screen rotating while tilting
@@ -93,6 +93,6 @@ $('bNext').addEventListener('click', () => press('focusNext'));
 $('bView').addEventListener('click', () => press('view'));
 $('bLevel').addEventListener('click', () => { controls.calibrate(); $('gyroHint').textContent = 'Levelled: this hold is now flat'; });
 $('disconnectBtn').addEventListener('click', () => { link.stop(); connected = false; showPad(false); setStatus('Disconnected.'); });
-// A code in the address (controller.html#1234) is pre-filled; connecting still needs a tap (sensor permission)
-if (/^#\d{4}$/.test(location.hash)) $('codeInput').value = location.hash.slice(1);
+// A code in the address (controller.html#123456) is pre-filled; connecting still needs a tap (sensor permission)
+if (/^#\d{6}$/.test(location.hash)) $('codeInput').value = location.hash.slice(1);
 requestAnimationFrame(loop);

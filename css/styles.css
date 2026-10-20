@@ -238,7 +238,7 @@ details.fold[open] .fold-caret { transform: rotate(180deg); }
 .pad-page { max-width: 520px; margin: 0 auto; padding: 12px; display: flex; flex-direction: column; gap: 12px; }
 .pad-page .card { align-items: center; text-align: center; }
 .code-input {
-  width: 100%; max-width: 260px; font-size: 2.4rem; font-weight: 800; letter-spacing: 0.4em; text-align: center; padding: 10px 0 10px 0.4em;
+  width: 100%; max-width: 300px; font-size: 2.2rem; font-weight: 800; letter-spacing: 0.25em; text-align: center; padding: 10px 0 10px 0.25em;
   background: rgba(0,0,0,0.4); color: var(--amber); border: 2px solid var(--bg-card-border); border-radius: 14px;
 }
 .code-input:focus { outline: none; border-color: var(--cyan); }

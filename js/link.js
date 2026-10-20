@@ -59,7 +59,8 @@ function bindConn(conn, onMessage, onStatus) {
 }
 
 /**
- * TV / game side: registers a random 4-digit code and waits for a phone to call it.
+ * TV / game side: registers a random 6-digit code and waits for a phone to call it.
+ * 6 digits (900,000 codes, cryptographically random) so an active code can't practically be guessed.
  * A newer phone replaces an older one. onStatus: 'waiting' | 'phone' | 'connected' | 'lost' | 'failed'.
  */
 export class TVLink {
@@ -67,7 +68,7 @@ export class TVLink {
 
   async start() {
     for (let attempt = 0; attempt < 5; attempt++) {
-      const code = String(Math.floor(1000 + Math.random() * 9000));
+      const code = String(100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000));
       const peer = makePeer(LINK.PREFIX + code);
       try {
         await whenOpen(peer);
