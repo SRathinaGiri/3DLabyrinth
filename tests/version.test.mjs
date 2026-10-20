@@ -21,8 +21,35 @@ test('version is identical in config, service worker, manifest and index.html', 
 
 test('service worker pre-caches every JS module', () => {
   const sw = read('sw.js');
-  for (const m of ['app', 'config', 'maze', 'physics', 'renderer', 'board', 'materials', 'controls', 'hud3d', 'audio', 'ui']) {
+  for (const m of ['app', 'config', 'maze', 'physics', 'renderer', 'board', 'materials', 'controls', 'hud3d', 'audio', 'ui', 'link', 'pad']) {
     assert.ok(sw.includes(`'./js/${m}.js'`), `sw.js does not cache js/${m}.js`);
+  }
+  assert.ok(sw.includes("'./controller.html'"), 'sw.js does not cache controller.html');
+});
+
+test('phone controller page is pinned to the current version too', () => {
+  const html = read('controller.html');
+  const imports = JSON.parse(html.match(/<script type="importmap">([\s\S]*?)<\/script>/)[1]).imports;
+  for (const mod of ['config', 'controls', 'link']) {
+    assert.equal(imports[`./js/${mod}.js`], `./js/${mod}.js?v=${VERSION}`, `controller import map entry for ${mod}.js`);
+  }
+  assert.ok(html.includes(`./js/pad.js?v=${VERSION}`), 'controller.html must load pad.js with the current version');
+  assert.ok(html.indexOf('type="importmap"') < html.indexOf('type="module"'));
+});
+
+test('privacy: the only outside hosts are the approved pairing server and STUN', () => {
+  // Approved 2026-10-20: PeerJS public signalling (handshake only) + Google STUN. Nothing else may be contacted.
+  const allowed = new Set(['0.peerjs.com', 'stun.l.google.com']);
+  const files = ['js/app.js', 'js/config.js', 'js/maze.js', 'js/physics.js', 'js/renderer.js', 'js/board.js', 'js/materials.js',
+    'js/controls.js', 'js/hud3d.js', 'js/audio.js', 'js/ui.js', 'js/link.js', 'js/pad.js', 'sw.js', 'index.html', 'controller.html'];
+  for (const f of files) {
+    const src = read(f);
+    for (const m of src.matchAll(/(?:wss?|https?|stun|turn):\/\/([a-z0-9.-]+)/gi)) {
+      assert.ok(allowed.has(m[1].toLowerCase()), `${f} contacts an unapproved host: ${m[0]}`);
+    }
+    for (const m of src.matchAll(/(?:HOST|urls)\s*:\s*['"](?:stun:)?([a-z0-9.-]+)/gi)) {
+      assert.ok(allowed.has(m[1].toLowerCase()), `${f} configures an unapproved host: ${m[1]}`);
+    }
   }
 });
 
@@ -55,7 +82,7 @@ test('import map pins every module to the current version (no stale-module mixin
   const m = html.match(/<script type="importmap">([\s\S]*?)<\/script>/);
   assert.ok(m, 'index.html needs an import map');
   const imports = JSON.parse(m[1]).imports;
-  for (const mod of ['config', 'maze', 'physics', 'renderer', 'board', 'materials', 'controls', 'hud3d', 'audio', 'ui']) {
+  for (const mod of ['config', 'maze', 'physics', 'renderer', 'board', 'materials', 'controls', 'hud3d', 'audio', 'ui', 'link']) {
     assert.equal(imports[`./js/${mod}.js`], `./js/${mod}.js?v=${VERSION}`, `import map entry for ${mod}.js`);
   }
   assert.ok(html.indexOf('type="importmap"') < html.indexOf('type="module"'), 'import map must come before the module script');

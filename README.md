@@ -57,6 +57,14 @@ The glasses are a display for your phone, so **the phone in your hand is the con
 - **Bluetooth gamepad** (8BitDo, Xbox, PlayStation…): the left stick or D-pad tilts and moves between panel buttons. **A** confirms and starts from the menu, and **B / Start** pauses and resumes, so the phone can stay in your pocket.
 - **Bluetooth "selfie remotes":** they usually send volume keys, which web pages can't read.
 
+## 📲 Phone as controller (TV, Google TV + glasses)
+Run the game on a big screen (e.g. a TV browser feeding RayNeo glasses over HDMI) and steer by tilting your phone:
+1. In the game: **Controls → 📲 Phone controller**. It shows a 4-digit code and the controller address (`…/controller.html`).
+2. On a phone on the **same Wi-Fi** (a phone hotspot works), open that address, type the code and tap **Connect**.
+3. Tilt the phone to tilt the board, or drag in the circle. **OK / ◀ ▶** drive the 3D panels, **⏸** pauses, and **🎯 Re-level** sets "flat". The phone shows the level, time, balls home and lives.
+
+How it works (`js/link.js`, `js/pad.js`): the two browsers can't find each other on a LAN by themselves, so they are introduced once through the free public **PeerJS signalling server** (`0.peerjs.com`). The game speaks its plain WebSocket protocol directly, with no PeerJS library. After that, a WebRTC data channel carries tilt (~30/s) and button presses **directly between the devices**. Google's public STUN server only helps them find a route. The use of both was approved on 2026-10-20, and `tests/version.test.mjs` fails if any other outside host appears in the code. Only whitelisted button actions are accepted, and if tilt messages stop for 0.5 s the board levels out.
+
 ## Inside view (1 ball) & minimap
 - **🧍 Inside view** (🎥 button cycles Auto → Whole board → Follow → Inside, or press <kbd>V</kbd>): a chase camera at ball height. Walls are drawn **3.2× taller** in this view only, so the corridors tower around you; the physics doesn't change.
 - **Ball count follows the view:** Inside = **1 ball**, every board view = **3 balls**. Crossing that line mid-level restarts the level, after a 3D "Restart level?" confirmation unless you're in the first 3 s. Esc or "Keep playing" reverts the view.

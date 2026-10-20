@@ -323,7 +323,7 @@ export class HUD3D {
     g.fillText(`❤${lives}`, 925, H / 2 + 2);
     g.font = '700 40px system-ui, sans-serif';
     g.fillStyle = '#64748b';
-    g.fillText({ gyro: '📱', touch: '👆', keys: '⌨', pad: '🎮', vr: '🥽' }[source] || '', 1000, H / 2 + 2);
+    g.fillText({ gyro: '📱', touch: '👆', keys: '⌨', pad: '🎮', vr: '🥽', remote: '📲' }[source] || '', 1000, H / 2 + 2);
     this.bar.tex.needsUpdate = true;
   }
 

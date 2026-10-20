@@ -33,6 +33,8 @@ export class ControlsHandler {
 
     this.padTilt = { x: 0, y: 0 };
     this.xrTilt = { x: 0, y: 0 };
+    this.remoteTilt = { x: 0, y: 0 }; // phone controller (controller.html) over the data channel
+    this.remoteAt = 0;
 
     this.wakeLock = null;
     this.wakeLockRequested = false;
@@ -227,6 +229,13 @@ export class ControlsHandler {
     }
   }
 
+  /** Tilt received from the phone controller, already calibrated and shaped on the phone. */
+  setRemoteTilt(x, y) {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+    this.remoteTilt.x = clamp1(x); this.remoteTilt.y = clamp1(y);
+    this.remoteAt = performance.now();
+  }
+
   /** Quest controllers: thumbstick tilts; A/X confirms; B/Y pauses (the system menu button is not exposed to pages). */
   pollXR(xrSession) {
     this.xrTilt.x = this.xrTilt.y = 0;
@@ -261,6 +270,9 @@ export class ControlsHandler {
       this.set(clamp1((this.drag.x - this.drag.x0) / r), clamp1(-(this.drag.y - this.drag.y0) / r), 'touch');
     } else if (kx || ky || this.keyTilt.x || this.keyTilt.y) {
       this.set(this.keyTilt.x, this.keyTilt.y, 'keys');
+    } else if (performance.now() - this.remoteAt < 500) {
+      // Phone controller: it streams ~30 updates/s; if they stop (phone asleep, Wi-Fi drop) the board levels out
+      this.set(this.remoteTilt.x, this.remoteTilt.y, 'remote');
     } else if (this.xrTilt.x || this.xrTilt.y) {
       this.set(this.xrTilt.x, this.xrTilt.y, 'vr');
     } else if (this.padTilt.x || this.padTilt.y) {

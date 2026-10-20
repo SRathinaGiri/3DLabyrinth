@@ -11,6 +11,10 @@ import { ControlsHandler } from './controls.js';
 import { HUD3D } from './hud3d.js';
 import { soundEngine } from './audio.js';
 import { UIManager } from './ui.js';
+import { TVLink } from './link.js';
+
+// Buttons the phone controller may press (anything else on the data channel is ignored)
+const REMOTE_ACTIONS = new Set(['confirm', 'pause', 'focusPrev', 'focusNext', 'view', 'restart']);
 
 const DEG = Math.PI / 180;
 const PROGRESS_KEY = '3d_labyrinth_progress';
@@ -587,10 +591,59 @@ class GameApp {
     r.setEyeDistance(this.depth * dist * STEREO_RATIO);
   }
 
+  /* ------------------------------ Phone controller ------------------------------ */
+  /** Show a pairing code; a phone opening controller.html and entering it becomes the controller. */
+  async startPhoneLink() {
+    if (this.link) { this.ui.showLinkPanel(this.link.code, this.link.connected ? 'connected' : 'waiting'); return; }
+    this.ui.showLinkPanel(null, 'starting');
+    this.link = new TVLink({
+      onMessage: m => this.onRemoteMessage(m),
+      onStatus: s => {
+        this.ui.setLinkStatus(s);
+        if (s === 'connected') { this.audio.playTick(false); this.hud.showBanner('📲 PHONE', 'Controller connected', '#34ff9a', 1.4); }
+        if (s === 'lost') this.controls.remoteAt = 0; // board levels out at once
+      }
+    });
+    try {
+      const code = await this.link.start();
+      this.ui.showLinkPanel(code, 'waiting');
+    } catch (err) {
+      this.link = null;
+      this.ui.setLinkStatus('error:' + err.message);
+    }
+  }
+
+  stopPhoneLink() {
+    if (this.link) this.link.stop();
+    this.link = null;
+    this.controls.remoteAt = 0;
+    this.ui.setLinkStatus('off');
+  }
+
+  onRemoteMessage(m) {
+    if (!m || typeof m !== 'object') return;
+    if (m.t === 'tilt') this.controls.setRemoteTilt(+m.x, +m.y);
+    else if (m.t === 'btn' && REMOTE_ACTIONS.has(m.b)) { this.audio.ensureContext(); this.handleAction(m.b); }
+  }
+
+  /** ~4x/s: tell the phone what the game is doing, so its screen can show it. */
+  sendLinkState(now) {
+    if (!this.link || !this.link.connected || now - (this.linkSentAt || 0) < 250) return;
+    this.linkSentAt = now;
+    const tl = this.level ? this.level.timeLimit : 0;
+    this.link.send({
+      t: 'state', s: this.state, lv: this.level ? this.level.n : this.progress.unlocked, lives: this.progress.lives,
+      left: tl ? Math.max(0, Math.ceil(tl - this.elapsed)) : null,
+      home: this.physics ? this.physics.captured : 0, balls: this.physics ? this.physics.balls.length : 0,
+      panel: this.hud.dialogSpec ? this.hud.dialogSpec.title : null
+    });
+  }
+
   animate(timestamp) {
     const now = timestamp || performance.now();
     const dt = Math.min(Math.max(((now - (this.lastTime || now)) / 1000), 0.001), 0.05);
     this.lastTime = now;
+    this.sendLinkState(now);
     if (this.state === 'MENU' || !this.level) {
       this.controls.pollGamepads(); // a pad's A button can start the game from the menu (glasses players)
       return; // menu has no 3D view: save battery
@@ -617,7 +670,7 @@ class GameApp {
 
   /** Gamepad / Quest thumbstick flicks move dialog focus (edge-triggered). */
   pollDialogStick() {
-    const x = this.controls.source === 'pad' || this.controls.source === 'vr' ? this.controls.tilt.x : 0;
+    const x = ['pad', 'vr', 'remote'].includes(this.controls.source) ? this.controls.tilt.x : 0;
     const dir = x > 0.6 ? 1 : x < -0.6 ? -1 : 0;
     if (dir && dir !== this.stickDir) this.hud.moveFocus(dir);
     this.stickDir = dir;

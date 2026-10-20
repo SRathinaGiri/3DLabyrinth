@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#020617">
+  <title>Labyrinth Controller</title>
+  <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg">
+  <link rel="stylesheet" href="./css/styles.css?v=1.11.0">
+  <!-- Same release pinning as the game: modules always load as one version -->
+  <script type="importmap">
+  {
+    "imports": {
+      "./js/config.js": "./js/config.js?v=1.11.0",
+      "./js/controls.js": "./js/controls.js?v=1.11.0",
+      "./js/link.js": "./js/link.js?v=1.11.0"
+    }
+  }
+  </script>
+</head>
+<body class="pad-body">
+  <main class="pad-page">
+    <header class="app-header">
+      <div class="brand-title"><span>📲 Labyrinth controller</span></div>
+    </header>
+
+    <section class="card" id="pairCard">
+      <p class="muted">Open <strong>📲 Phone controller</strong> in the game on your TV or glasses screen, then enter the 4-digit code it shows. This phone must be on the same Wi-Fi.</p>
+      <input id="codeInput" class="code-input" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" aria-label="Pairing code" placeholder="0000">
+      <button class="action-btn" id="connectBtn">Connect</button>
+      <p class="link-status" id="padStatus" role="status"></p>
+    </section>
+
+    <section class="card hidden" id="padCard">
+      <div class="pad-tv" id="tvStatus" role="status">Connected</div>
+      <div class="tilt-zone" id="tiltZone" aria-label="Tilt pad: tilt the phone or drag here">
+        <div class="tilt-cross"></div>
+        <div class="tilt-dot" id="tiltDot"></div>
+      </div>
+      <p class="hint" id="gyroHint">Tilt the phone to tilt the board (or drag in the circle)</p>
+      <p class="hint" id="panelHint"></p>
+      <div class="pad-grid">
+        <button class="pad-btn" id="bPrev" aria-label="Previous button on screen">◀</button>
+        <button class="pad-btn primary" id="bOk">OK</button>
+        <button class="pad-btn" id="bNext" aria-label="Next button on screen">▶</button>
+        <button class="pad-btn" id="bPause">⏸ Pause</button>
+        <button class="pad-btn" id="bLevel">🎯 Re-level</button>
+        <button class="pad-btn" id="bView">🎥 View</button>
+      </div>
+      <button class="link-btn" id="disconnectBtn">Disconnect</button>
+    </section>
+  </main>
+  <div class="joystick" id="joystick"><div class="knob"></div></div>
+  <script type="module" src="./js/pad.js?v=1.11.0"></script>
+</body>
+</html>

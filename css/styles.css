@@ -230,3 +230,33 @@ details.fold > summary .section-h { align-self: center; white-space: nowrap; }
 details.fold[open] .fold-caret { transform: rotate(180deg); }
 .fold-body { display: flex; flex-direction: column; gap: 12px; padding: 0 16px 16px; }
 .reset-line { text-align: center; }
+
+/* ---------------- Phone controller (pairing panel on the TV + controller.html) ---------------- */
+.link-url { font-family: ui-monospace, monospace; color: var(--cyan); word-break: break-all; text-align: center; font-size: 1rem; }
+.link-code { font-size: clamp(2.6rem, 12vw, 4rem); font-weight: 900; letter-spacing: 0.35em; color: var(--amber); text-align: center; padding-left: 0.35em; }
+.link-status { min-height: 1.4em; text-align: center; font-weight: 700; color: var(--text); }
+.pad-page { max-width: 520px; margin: 0 auto; padding: 12px; display: flex; flex-direction: column; gap: 12px; }
+.pad-page .card { align-items: center; text-align: center; }
+.code-input {
+  width: 100%; max-width: 260px; font-size: 2.4rem; font-weight: 800; letter-spacing: 0.4em; text-align: center; padding: 10px 0 10px 0.4em;
+  background: rgba(0,0,0,0.4); color: var(--amber); border: 2px solid var(--bg-card-border); border-radius: 14px;
+}
+.code-input:focus { outline: none; border-color: var(--cyan); }
+.pad-tv { font-weight: 700; color: var(--green); }
+.tilt-zone {
+  position: relative; width: min(78vw, 300px); aspect-ratio: 1; border-radius: 50%; touch-action: none;
+  border: 2px solid rgba(0,240,255,0.5); background: radial-gradient(circle, rgba(0,240,255,0.10), rgba(2,6,23,0.6));
+}
+.tilt-cross { position: absolute; inset: 50% 0 auto 0; height: 1px; background: rgba(0,240,255,0.25); }
+.tilt-cross::after { content: ''; position: absolute; left: 50%; top: calc(-1 * min(39vw, 150px)); width: 1px; height: min(78vw, 300px); background: rgba(0,240,255,0.25); }
+.tilt-dot {
+  position: absolute; left: 50%; top: 50%; width: 22%; aspect-ratio: 1; border-radius: 50%; transform: translate(-50%, -50%);
+  background: radial-gradient(circle at 35% 35%, #fff4c2, var(--amber)); box-shadow: 0 0 18px rgba(255,201,60,0.7);
+}
+.pad-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; }
+.pad-btn {
+  min-height: 64px; font-size: 1.15rem; font-weight: 800; color: var(--text); cursor: pointer; touch-action: manipulation;
+  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); border-radius: 14px;
+}
+.pad-btn:active { background: rgba(0,240,255,0.25); }
+.pad-btn.primary { background: linear-gradient(135deg, var(--cyan), #00a8ff); color: #020617; border: none; }

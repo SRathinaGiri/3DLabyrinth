@@ -28,6 +28,30 @@ export class UIManager {
     this.setupInstall();
   }
 
+  /* ---------- Phone controller pairing panel ---------- */
+  showLinkPanel(code, status) {
+    const url = new URL('controller.html', location.href);
+    url.search = ''; url.hash = '';
+    $('linkUrl').textContent = url.href;
+    $('linkCode').textContent = code || '····';
+    $('linkPanel').classList.remove('hidden');
+    this.setLinkStatus(status);
+  }
+
+  setLinkStatus(s) {
+    const el = $('linkStatus'), btn = $('phonePadBtn');
+    const text = {
+      starting: '⏳ Getting a code…', waiting: '⏳ Waiting for the phone…', connected: '✅ Phone connected: tilt it to play',
+      lost: '⚠ Phone disconnected: enter the code again on the phone', off: ''
+    }[s] ?? (s.startsWith('error:') ? `⚠ ${s.slice(6)}` : '');
+    if (el) el.textContent = text;
+    if (btn) {
+      btn.classList.toggle('active', s === 'connected');
+      btn.textContent = s === 'connected' ? '📲 Phone: connected' : '📲 Phone controller';
+    }
+    if (s === 'connected') setTimeout(() => { if (this.app.link && this.app.link.connected) $('linkPanel').classList.add('hidden'); }, 1500);
+  }
+
   /* ---------- Collapsible menu sections ---------- */
   setupFolds() {
     const key = '3d_labyrinth_folds';
@@ -119,6 +143,9 @@ export class UIManager {
     ['gyroToggle', 'gameGyroBtn'].forEach(id => this.on(id, () => this.toggleGyro()));
     ['viewModeBtn', 'gameViewBtn'].forEach(id => this.on(id, () => this.setViewMode(a.cycleViewMode())));
     this.on('helpBtn', () => { $('infoDrawer').classList.remove('hidden'); });
+    this.on('phonePadBtn', () => a.startPhoneLink());
+    this.on('linkDoneBtn', () => $('linkPanel').classList.add('hidden'));
+    this.on('linkStopBtn', () => { a.stopPhoneLink(); $('linkPanel').classList.add('hidden'); });
     this.on('closeInfoBtn', () => { $('infoDrawer').classList.add('hidden'); });
   }
 
