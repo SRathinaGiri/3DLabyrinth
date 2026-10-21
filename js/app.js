@@ -12,28 +12,16 @@ import { HUD3D } from './hud3d.js';
 import { soundEngine } from './audio.js';
 import { UIManager } from './ui.js';
 import { TVLink } from './link.js';
+import { PROGRESS_KEY, loadProgress, saveProgress, parseProgress, mergeProgress, freshProgress } from './progress.js';
 
 // Buttons the phone controller may press (anything else on the data channel is ignored)
 const REMOTE_ACTIONS = new Set(['confirm', 'pause', 'focusPrev', 'focusNext', 'view', 'restart', 'guide']);
 
 const DEG = Math.PI / 180;
-const PROGRESS_KEY = '3d_labyrinth_progress';
 const CAM_PITCH = 60 * DEG;       // camera elevation above the board plane
 const STEREO_RATIO = 0.035;       // eye separation as a fraction of viewing distance at Depth = 1.0
 const MIN_CELL_PX = 34;           // AUTO view switches to follow-cam when cells would render smaller than this
 const COUNTDOWN = 3;
-
-function loadProgress() {
-  try {
-    const p = JSON.parse(localStorage.getItem(PROGRESS_KEY) || 'null');
-    if (p && p.unlocked >= 1) {
-      // Saves from before lives existed get credit for the levels already cleared
-      const lives = Number.isInteger(p.lives) ? p.lives : Math.min(LIVES.MAX, LIVES.START + (p.unlocked - 1) * LIVES.PER_NEW_LEVEL);
-      return { unlocked: p.unlocked | 0, best: p.best || {}, lives, apples: p.apples || {} };
-    }
-  } catch (_) { /* corrupt or blocked storage: start fresh */ }
-  return { unlocked: 1, best: {}, lives: LIVES.START, apples: {} };
-}
 
 class GameApp {
   constructor() {
@@ -72,6 +60,13 @@ class GameApp {
 
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden' && (this.state === 'PLAYING' || this.state === 'COUNTDOWN')) this.togglePause();
+      if (document.visibilityState === 'visible') this.syncProgress();
+    });
+    // Another copy of the game (tab / installed app) saved: adopt its progress, or its reset
+    window.addEventListener('storage', e => {
+      if (e.key !== PROGRESS_KEY && e.key !== null) return;
+      if (e.newValue === null) { this.progress = freshProgress(); if (this.state === 'MENU') this.ui.renderLevelGrid(); }
+      else this.syncProgress();
     });
     window.addEventListener('resize', () => this.renderer.handleResize());
     window.addEventListener('orientationchange', () => setTimeout(() => this.renderer.handleResize(), 250));
@@ -121,6 +116,7 @@ class GameApp {
     clearInterval(this.countdownTimer);
     this.closeDialog();
     this.lockOrientation();
+    this.syncProgress(); // lives / claimed apples may have changed in another copy of the game
     this.loadLevel(n);
     this.ui.showGamePage();
     this.renderer.handleResize();
@@ -254,8 +250,15 @@ class GameApp {
     try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch (_) { /* not locked */ }
   }
 
-  saveProgress() {
-    try { localStorage.setItem(PROGRESS_KEY, JSON.stringify(this.progress)); } catch (_) { /* private mode */ }
+  saveProgress() { this.progress = saveProgress(this.progress); } // merges: never rolls back another copy's levels
+
+  /** Pick up what another copy of the game saved. Every lives change is saved at once, so stored lives are the newest. */
+  syncProgress() {
+    let stored = null;
+    try { stored = parseProgress(localStorage.getItem(PROGRESS_KEY)); } catch (_) { /* storage blocked */ }
+    if (!stored) return;
+    this.progress = mergeProgress(stored, this.progress);
+    if (this.state === 'MENU') this.ui.renderLevelGrid();
   }
 
   /** Spend n lives from the shared pool; false (and nothing spent) if there are not enough. */

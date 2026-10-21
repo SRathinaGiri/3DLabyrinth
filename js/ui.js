@@ -2,7 +2,8 @@
    3D LABYRINTH - UI MANAGER (menus, modals, settings persistence)
    ========================================================================== */
 
-import { BOARD_SURFACES, BALL_TYPES, PHYS, LIVES, APPLE, surfacePhysics, timePace } from './config.js';
+import { BOARD_SURFACES, BALL_TYPES, PHYS, APPLE, surfacePhysics, timePace } from './config.js';
+import { PROGRESS_KEY, freshProgress } from './progress.js';
 import { buildLevel } from './maze.js';
 
 const SETTINGS_KEY = '3d_labyrinth_settings';
@@ -143,8 +144,8 @@ export class UIManager {
     this.on('settingsBackBtn', () => this.hideModals()); // back to the 3D pause panel
     this.on('resetProgressBtn', () => {
       if (!confirm('Reset all level progress and best times?')) return;
-      a.progress = { unlocked: 1, best: {}, lives: LIVES.START, apples: {} };
-      try { localStorage.removeItem('3d_labyrinth_progress'); } catch (_) { /* storage blocked */ }
+      a.progress = freshProgress();
+      try { localStorage.removeItem(PROGRESS_KEY); } catch (_) { /* storage blocked */ }
       this.renderLevelGrid();
     });
     ['audioToggle', 'gameAudioBtn'].forEach(id => this.on(id, () => this.toggleMute()));

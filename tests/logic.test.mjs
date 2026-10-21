@@ -245,3 +245,30 @@ test('route guide: arrows chain start -> goal; every dead-end cell sits behind e
     assert.equal(mouths.filter(m => m.apple).length, L.apples.length ? 1 : 0, `level ${n}: apple branch not flagged exactly once`);
   }
 });
+
+test('saved progress never rolls back when two copies of the game are open', async () => {
+  const { saveProgress, loadProgress, mergeProgress, PROGRESS_KEY } = await import('../js/progress.js');
+  const mem = new Map();
+  const storage = { getItem: k => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, String(v)) };
+  saveProgress({ unlocked: 17, best: { 16: { time: 90, stars: 2 } }, lives: 3, apples: {} }, storage);
+  const stale = loadProgress(storage);                       // copy A loads at "Level 17 next"
+  let fresh = loadProgress(storage);                         // copy B clears 17 and 18, grabs apple 18
+  fresh = { ...fresh, unlocked: 19, lives: 5, best: { ...fresh.best, 17: { time: 80, stars: 3 }, 18: { time: 95, stars: 2 } }, apples: { 18: true } };
+  saveProgress(fresh, storage);
+  stale.lives = 2;                                           // A spends a life on a hop-over save
+  stale.best = { 16: { time: 70, stars: 1 } };               // ...and beats its level-16 time
+  const kept = saveProgress(stale, storage);
+  const stored = JSON.parse(mem.get(PROGRESS_KEY));
+  assert.deepEqual(kept, stored, 'the merged record is what the saving copy keeps in memory');
+  assert.equal(stored.unlocked, 19, 'levels cleared in the other copy survive');
+  assert.deepEqual(stored.best[17], { time: 80, stars: 3 });
+  assert.deepEqual(stored.best[16], { time: 70, stars: 2 }, 'fastest time and most stars, from either copy');
+  assert.equal(stored.apples[18], true, 'claimed apples stay claimed');
+  assert.equal(stored.lives, 2, 'lives come from the copy that saved last');
+  // Pre-lives saves still get a life per cleared level; corrupt storage starts fresh
+  mem.set(PROGRESS_KEY, JSON.stringify({ unlocked: 4, best: {} }));
+  assert.equal(loadProgress(storage).lives, 4);
+  mem.set(PROGRESS_KEY, '{oops');
+  assert.equal(loadProgress(storage).unlocked, 1);
+  assert.equal(mergeProgress(stale, null), stale);
+});
