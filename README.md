@@ -81,7 +81,7 @@ How it works (`js/link.js`, `js/pad.js`): the two browsers can't find each other
   - A badge on the icon shows what the next tap does (**+** enlarge, **×** close).
 
 ## 🧭 Route guide (optional assist)
-Toggle it in **Controls → 🧭 Route guide**, on the pause panel (also in VR), with <kbd>G</kbd>, or from the phone controller.
+Toggle it in **Controls → 🧭 Route guide** (main menu), on the pause panel (**🧭 Guide**, also in VR), or with <kbd>G</kbd>. From the phone controller: **⏸ Pause**, then use **◀ ▶** and **OK** to reach 🧭 Guide on the pause panel.
 - **Green** floor tint with **arrows** along the route to the goal.
 - A **red bar + tint** across the mouth of every **dead-end** branch.
 - A **gold** bar on the one branch worth entering: the 🍎 bonus apple.
