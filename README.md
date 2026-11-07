@@ -5,7 +5,7 @@
 **Tilt the board to roll three balls through a 3D maze into the goal. Dodge the holes, time the sliding gates, beat the clock. Play flat, or in real stereo 3D and VR.**
 
 [![Play online](https://img.shields.io/badge/▶%20Play%20online-srathinagiri.github.io%2F3DLabyrinth-00b8d9?style=flat-square)](https://srathinagiri.github.io/3DLabyrinth/)
-[![Version](https://img.shields.io/badge/version-1.15.0-8b5cf6?style=flat-square)](manifest.json)
+[![Version](https://img.shields.io/badge/version-1.16.0-8b5cf6?style=flat-square)](manifest.json)
 [![3D modes](https://img.shields.io/badge/3D-cross--eye%20%7C%20parallel%20%7C%20anaglyph%20%7C%20VR-f97316?style=flat-square)](#-3d-and-vr)
 [![Offline](https://img.shields.io/badge/works-offline-10b981?style=flat-square)](#-install-as-an-app)
 [![three.js](https://img.shields.io/badge/three.js-r128-black?style=flat-square&logo=threedotjs)](https://threejs.org/)
@@ -70,7 +70,7 @@ Press 🎥 (or `V`) to cycle **Auto → Whole board → Follow → Inside**.
 
 - **2D**, **Parallel** and **Cross-eye** side-by-side, **Anaglyph** (red/cyan glasses), and **Smart glasses** half-SBS (RayNeo, XREAL, Rokid, TCL).
 - The depth adjusts itself to the board size, and all messages appear inside the 3D scene, so they read correctly in every mode.
-- **Meta Quest (WebXR):** tap **🥽 VR** in the Quest browser. The thumbstick tilts the board, and `B` / `Y` opens the pause panel, where **☰ Menu** takes you out of VR and back to the main menu. Choose **🤲 Hand-held** (the default: a board held just below eye level and tipped toward you, so you never bow your head) or **🟫 Floor** (a giant maze at your feet). The Inside view is not offered in VR, to avoid motion sickness.
+- **Meta Quest (WebXR):** tap **🥽 VR** in the Quest browser. The thumbstick tilts the board, and `B` / `Y` opens the pause panel, where **☰ Menu** takes you out of VR and back to the main menu. Choose **🤲 Hand-held** (the default: a board held just below eye level and tipped toward you, so you never bow your head) or **🟫 Floor** (a giant maze at your feet). Hand-held not quite right for you? **🎚 Adjust** on the pause panel lets you set it live: push the thumbstick **up/down to raise or lower the board** (−30 to +20 cm) and **left/right to change its tilt** (0–85°), then press the trigger. Your setting is remembered on that headset. The Inside view is not offered in VR, to avoid motion sickness.
 - **Smart glasses:** the phone in your hand is the controller. Tilt it to tilt the board. A Bluetooth gamepad also works.
 
 ## 📲 Phone as controller

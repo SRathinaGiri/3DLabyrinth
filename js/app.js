@@ -34,7 +34,7 @@ class GameApp {
     this.look = { ...DEFAULT_LOOK }; // board surface + ball type, chosen in the menu
     this.inside = { yaw: 0, targetYaw: 0, revT: 0, vx: 0, vz: 0, back: INSIDE_VIEW.CAM_BACK };
     this.mapMode = 'small'; // minimap: 'off' | 'small' | 'large', cycled by the 🗺 icon or N
-    this.vr = { mode: 'table', pending: false, frames: 0, head: null, fwd: null, yaw: 0 };
+    this.vr = { mode: 'table', pending: false, frames: 0, head: null, fwd: null, yaw: 0, lift: 0, tilt: VR.TABLE.TILT_DEG, adjusting: false };
     this.vrHud = new THREE.Group(); // floating HUD screen in VR (anchored in the room, not glued to the face)
 
     this.scene = new THREE.Scene();
@@ -177,6 +177,7 @@ class GameApp {
         title: 'PAUSED', color: '#00f0ff', focus,
         lines: [`Level ${this.level.n} · ${lives}`, 'Thumbstick to choose · trigger or A to select'],
         buttons: [{ id: 'resume', label: '▶ Resume' }, { id: 'restart', label: '↻ Restart' }, guide, { id: 'recenter', label: '🎯 Recenter' },
+          ...(this.vr.mode === 'table' ? [{ id: 'vradjust', label: '🎚 Adjust' }] : []),
           { id: 'vrsize', label: this.vr.mode === 'table' ? '🟫 Floor' : '🤲 Hand-held' }, { id: 'menu', label: '☰ Menu' }]
       });
       return;
@@ -375,6 +376,7 @@ class GameApp {
       case 'recenter': this.placeVR(); this.togglePause(); break;
       case 'vrsize': this.vr.mode = this.vr.mode === 'table' ? 'floor' : 'table'; this.placeVR(); this.togglePause(); break;
       case 'exitvr': this.exitVR(); break;
+      case 'vradjust': this.startVRAdjust(); break;
       case 'settings': this.ui.showModal('pauseScreen'); break; // sliders need a real 2D form
       case 'guide': { // toggle and redraw the pause panel in place, keeping focus on this button
         const focus = this.hud.dialogSpec ? this.hud.dialogSpec.focus : 0;
@@ -388,6 +390,8 @@ class GameApp {
   }
 
   handleAction(a) {
+    // Adjusting the VR board: trigger / A / B / Y all mean "done"
+    if (this.vr.adjusting && (a === 'confirm' || a === 'pause')) { this.endVRAdjust(); return; }
     const inGame = this.state !== 'MENU';
     const settingsOpen = !document.getElementById('pauseScreen').classList.contains('hidden');
     if (this.hud.dialogVisible && !settingsOpen) {
@@ -717,6 +721,7 @@ class GameApp {
     }
     this.controls.update(dt); // every frame, so gamepad/XR can drive dialogs while paused
     if (this.hud.dialogVisible) this.pollDialogStick();
+    if (this.vr.adjusting) this.updateVRAdjust(dt);
     if (this.state !== 'PAUSED') this.updatePlay(dt);
     this.hud.update(dt);
     this.updateCamera(dt);
@@ -793,7 +798,7 @@ class GameApp {
       const s = VR.TABLE.SIZE / span;
       w.scale.setScalar(s);
       w.position.copy(v.head).addScaledVector(v.fwd, VR.TABLE.DIST);
-      w.position.y = v.head.y - VR.TABLE.BELOW_EYES;
+      w.position.y = v.head.y - VR.TABLE.BELOW_EYES + v.lift;
     } else {
       const s = VR.FLOOR.SIZE / span, depth = H * s;
       // local-floor puts the real floor at y = 0; if the headset gave no floor, assume a standing eye height
@@ -804,8 +809,38 @@ class GameApp {
     }
     // Near edge faces the player; hand-held, the far edge is raised so the board faces your eyes like a tray
     // in your hands. Display only: the balls still follow the thumbstick tilt, not this one.
-    const pitch = v.mode === 'table' ? VR.TABLE.TILT_DEG * Math.PI / 180 : 0;
+    const pitch = v.mode === 'table' ? v.tilt * Math.PI / 180 : 0;
     w.rotation.set(pitch, v.yaw, 0, 'YXZ');
+  }
+
+  /** 🎚 Adjust: the pause panel steps aside and the thumbstick moves (↕) and tips (↔) the hand-held board live. */
+  startVRAdjust() {
+    this.closeDialog();
+    this.vr.adjusting = true;
+    this.showVRAdjustBanner();
+  }
+
+  updateVRAdjust(dt) {
+    if (!this.inVR) { this.vr.adjusting = false; return; }
+    const { x, y } = this.controls.tilt, A = VR.ADJUST, v = this.vr;
+    if (!x && !y) return;
+    v.lift = Math.max(A.LIFT_MIN, Math.min(A.LIFT_MAX, v.lift + y * A.LIFT_SPEED * dt));
+    v.tilt = Math.max(A.TILT_MIN, Math.min(A.TILT_MAX, v.tilt + x * A.TILT_SPEED * dt));
+    this.applyVR();
+    this.showVRAdjustBanner();
+  }
+
+  showVRAdjustBanner() {
+    const cm = Math.round(this.vr.lift * 100);
+    this.hud.showBanner('🎚 ADJUST BOARD', `↕ height ${cm > 0 ? '+' : ''}${cm} cm · ↔ tilt ${Math.round(this.vr.tilt)}° · trigger = done`, '#34ff9a');
+  }
+
+  endVRAdjust() {
+    this.vr.adjusting = false;
+    this.hud.hideBanner();
+    this.ui.saveSettings();
+    this.audio.playTick(false);
+    this.openPauseDialog(4); // back on the panel, focus on 🎚 Adjust (5th button)
   }
 
   exitVR() {

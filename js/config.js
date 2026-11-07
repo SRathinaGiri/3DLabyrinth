@@ -4,7 +4,7 @@
    Pure module (no THREE / DOM) so it can be unit-tested in Node.
    ========================================================================== */
 
-export const VERSION = '1.15.0';
+export const VERSION = '1.16.0';
 
 // Board geometry (world units; one maze cell = CELL x CELL)
 export const BOARD = {
@@ -104,6 +104,9 @@ export const VR = {
   // Hand-held: like holding a real labyrinth tray. Centre 0.6 m ahead and 0.22 m below the eyes (a ~20° downward
   // gaze, no bowed head), tipped 55° toward you so you look at it almost face-on. Display only: the balls follow the stick.
   TABLE: { SIZE: 0.6, DIST: 0.6, BELOW_EYES: 0.22, TILT_DEG: 55 },
+  // 🎚 Adjust (pause panel, hand-held only): thumbstick ↕ moves the board up/down, ↔ changes its tip. Saved per device.
+  // LIFT is metres added to the default height (+0.20 puts the centre 2 cm below the eyes); speeds are per second at full stick.
+  ADJUST: { LIFT_MIN: -0.30, LIFT_MAX: 0.20, TILT_MIN: 0, TILT_MAX: 85, LIFT_SPEED: 0.12, TILT_SPEED: 30 },
   WALL_SCALE: 0.6,                                         // walls drawn lower in VR (visual only) so far holes aren't hidden
   FLOOR: { SIZE: 3.2, NEAR_EDGE: 0.4, STAND_EYE: 1.5 },     // giant maze on the floor at your feet
   HUD: { DIST: 0.55, FOV: 30, ASPECT: 1.6 }                 // floating screen in front of the board (nearer than it, so panels never sit 'behind' it)

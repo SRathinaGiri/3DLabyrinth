@@ -343,9 +343,13 @@ export class HUD3D {
     g.fillStyle = '#e2e8f0'; g.font = '600 42px system-ui, sans-serif';
     for (const line of d.lines) { g.fillText(line, W / 2, y); y += 56; }
 
-    const n = d.buttons.length, gap = 26, bw = (W - 80 - gap * (n - 1)) / n, bh = 104, by = H - bh - 44;
+    // More than 5 buttons (VR pause panel) wrap onto two rows so labels stay readable in the headset
+    const n = d.buttons.length, rows = n > 5 ? 2 : 1, perRow = Math.ceil(n / rows), gap = 26;
+    const bw = (W - 80 - gap * (perRow - 1)) / perRow, bh = rows > 1 ? 92 : 104, by0 = H - 44 - rows * bh - (rows - 1) * 20;
     d.buttons.forEach((b, i) => {
-      Object.assign(b, { x: 40 + i * (bw + gap), y: by, w: bw, h: bh });
+      const r = Math.floor(i / perRow), c = i % perRow, inRow = r < rows - 1 ? perRow : n - perRow * (rows - 1);
+      const x0 = 40 + (perRow - inRow) * (bw + gap) / 2; // centre a shorter last row
+      Object.assign(b, { x: x0 + c * (bw + gap), y: by0 + r * (bh + 20), w: bw, h: bh });
       roundRect(g, b.x, b.y, b.w, b.h, 26);
       g.fillStyle = i === 0 ? (d.color || '#00f0ff') : 'rgba(255,255,255,0.12)';
       g.fill();

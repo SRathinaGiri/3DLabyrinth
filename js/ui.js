@@ -2,7 +2,7 @@
    3D LABYRINTH - UI MANAGER (menus, modals, settings persistence)
    ========================================================================== */
 
-import { BOARD_SURFACES, BALL_TYPES, PHYS, APPLE, surfacePhysics, timePace } from './config.js';
+import { BOARD_SURFACES, BALL_TYPES, PHYS, APPLE, VR, surfacePhysics, timePace } from './config.js';
 import { PROGRESS_KEY, freshProgress } from './progress.js';
 import { buildLevel } from './maze.js';
 
@@ -356,7 +356,9 @@ export class UIManager {
       mapMode: a.mapMode,
       guide: !!a.guideOn,
       board: a.look.board,
-      ball: a.look.ball
+      ball: a.look.ball,
+      vrLift: Math.round(a.vr.lift * 100) / 100, // whole cm
+      vrTilt: Math.round(a.vr.tilt)               // whole degrees
     };
     try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch (_) { /* storage blocked */ }
     this.syncSummaries();
@@ -384,6 +386,10 @@ export class UIManager {
     this.syncGyro(false);
     this.setViewMode(s.viewMode || 'AUTO');
     this.setLook({ board: s.board || 'neon', ball: s.ball || 'plastic' });
+    // VR hand-held board height / tilt from 🎚 Adjust (clamped: older or hand-edited saves can't put it out of reach)
+    const A = VR.ADJUST;
+    if (Number.isFinite(s.vrLift)) a.vr.lift = Math.max(A.LIFT_MIN, Math.min(A.LIFT_MAX, s.vrLift));
+    if (Number.isFinite(s.vrTilt)) a.vr.tilt = Math.max(A.TILT_MIN, Math.min(A.TILT_MAX, s.vrTilt));
     this.loading = false;
   }
 }
