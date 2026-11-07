@@ -70,7 +70,7 @@ Press 🎥 (or `V`) to cycle **Auto → Whole board → Follow → Inside**.
 
 - **2D**, **Parallel** and **Cross-eye** side-by-side, **Anaglyph** (red/cyan glasses), and **Smart glasses** half-SBS (RayNeo, XREAL, Rokid, TCL).
 - The depth adjusts itself to the board size, and all messages appear inside the 3D scene, so they read correctly in every mode.
-- **Meta Quest (WebXR):** tap **🥽 VR** in the Quest browser. The thumbstick tilts the board, and `B` / `Y` pauses. Choose **🪑 Table** (a board in front of you, raised like a drafting table) or **🟫 Floor** (a giant maze at your feet). The Inside view is not offered in VR, to avoid motion sickness.
+- **Meta Quest (WebXR):** tap **🥽 VR** in the Quest browser. The thumbstick tilts the board, and `B` / `Y` opens the pause panel, where **☰ Menu** takes you out of VR and back to the main menu. Choose **🤲 Hand-held** (the default: a board held just below eye level and tipped toward you, so you never bow your head) or **🟫 Floor** (a giant maze at your feet). The Inside view is not offered in VR, to avoid motion sickness.
 - **Smart glasses:** the phone in your hand is the controller. Tilt it to tilt the board. A Bluetooth gamepad also works.
 
 ## 📲 Phone as controller

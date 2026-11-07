@@ -135,7 +135,8 @@ class GameApp {
       if (this.state !== 'COUNTDOWN') { clearInterval(this.countdownTimer); return; }
       if (c === 1) this.controls.calibrate(); // capture the current hand position as "level"
       if (c > 0) {
-        const sub = this.orientProblem ? "⚠ Turn on your phone's rotation lock"
+        const sub = this.inVR ? 'B / Y button = pause & menu'
+          : this.orientProblem ? "⚠ Turn on your phone's rotation lock"
           : this.controls.gyroEnabled ? 'Hold phone steady · calibrating' : 'Get ready';
         this.hud.showBanner(String(c), sub, '#ffc93c');
         this.audio.playTick(false);
@@ -176,7 +177,7 @@ class GameApp {
         title: 'PAUSED', color: '#00f0ff', focus,
         lines: [`Level ${this.level.n} · ${lives}`, 'Thumbstick to choose · trigger or A to select'],
         buttons: [{ id: 'resume', label: '▶ Resume' }, { id: 'restart', label: '↻ Restart' }, guide, { id: 'recenter', label: '🎯 Recenter' },
-          { id: 'vrsize', label: this.vr.mode === 'table' ? '🟫 Floor' : '🪑 Table' }, { id: 'exitvr', label: '⏏ Exit VR' }]
+          { id: 'vrsize', label: this.vr.mode === 'table' ? '🟫 Floor' : '🤲 Hand-held' }, { id: 'menu', label: '☰ Menu' }]
       });
       return;
     }
@@ -310,7 +311,7 @@ class GameApp {
       color: rescuedWith ? '#ffc93c' : '#34ff9a',
       big: '★'.repeat(stars) + '☆'.repeat(3 - stars),
       lines,
-      buttons: [{ id: 'next', label: 'Next ▶' }, { id: 'replay', label: '↻ Replay' }, { id: 'menu', label: this.inVR ? '⏏ Exit VR' : '☰ Menu' }]
+      buttons: [{ id: 'next', label: 'Next ▶' }, { id: 'replay', label: '↻ Replay' }, { id: 'menu', label: '☰ Menu' }]
     });
   }
 
@@ -323,7 +324,7 @@ class GameApp {
     this.openDialog({
       title: "TIME'S UP", color: '#ff3b5c',
       lines: [`${this.physics.captured}/${this.physics.balls.length} balls home`, `Rescue needs ${out} ❤ · you have ${this.progress.lives}`],
-      buttons: [{ id: 'retry', label: '↻ Try again' }, { id: 'menu', label: this.inVR ? '⏏ Exit VR' : '☰ Menu' }]
+      buttons: [{ id: 'retry', label: '↻ Try again' }, { id: 'menu', label: '☰ Menu' }]
     });
   }
 
@@ -766,8 +767,8 @@ class GameApp {
 
   /**
    * Place the board (and the floating HUD) relative to where the player's head is right now:
-   * Table = a ~0.9 m board below the eyes in front of you; Floor = a ~3.2 m maze at your feet.
-   * Seated or standing, and whatever floor height the headset reports, you look down onto it.
+   * Hand-held = a 0.6 m board just below eye level, tipped toward you; Floor = a ~3.2 m maze at your feet.
+   * Seated or standing, and whatever floor height the headset reports, it is placed from your head.
    */
   placeVR() {
     const cam = this.renderer.mainCamera; // three r128 copies the XR head pose into the user camera each frame
@@ -789,9 +790,9 @@ class GameApp {
     const { W, H } = this.board.extent, span = Math.max(W, H);
     const w = this.board.world;
     if (v.mode === 'table') {
-      const s = VR.TABLE.SIZE / span, depth = H * s;
+      const s = VR.TABLE.SIZE / span;
       w.scale.setScalar(s);
-      w.position.copy(v.head).addScaledVector(v.fwd, VR.TABLE.NEAR_EDGE + depth / 2);
+      w.position.copy(v.head).addScaledVector(v.fwd, VR.TABLE.DIST);
       w.position.y = v.head.y - VR.TABLE.BELOW_EYES;
     } else {
       const s = VR.FLOOR.SIZE / span, depth = H * s;
@@ -801,8 +802,8 @@ class GameApp {
       w.position.copy(v.head).addScaledVector(v.fwd, VR.FLOOR.NEAR_EDGE + depth / 2);
       w.position.y = floorY + 0.02;
     }
-    // Near edge faces the player; on the table the far edge is also raised (drafting-table tilt) so you see
-    // past the walls to far holes. Display only: the balls still follow the thumbstick tilt, not this one.
+    // Near edge faces the player; hand-held, the far edge is raised so the board faces your eyes like a tray
+    // in your hands. Display only: the balls still follow the thumbstick tilt, not this one.
     const pitch = v.mode === 'table' ? VR.TABLE.TILT_DEG * Math.PI / 180 : 0;
     w.rotation.set(pitch, v.yaw, 0, 'YXZ');
   }
