@@ -5,7 +5,7 @@
 **Tilt the board to roll three balls through a 3D maze into the goal. Dodge the holes, time the sliding gates, beat the clock. Play flat, or in real stereo 3D and VR.**
 
 [![Play online](https://img.shields.io/badge/▶%20Play%20online-srathinagiri.github.io%2F3DLabyrinth-00b8d9?style=flat-square)](https://srathinagiri.github.io/3DLabyrinth/)
-[![Version](https://img.shields.io/badge/version-1.14.1-8b5cf6?style=flat-square)](manifest.json)
+[![Version](https://img.shields.io/badge/version-1.15.0-8b5cf6?style=flat-square)](manifest.json)
 [![3D modes](https://img.shields.io/badge/3D-cross--eye%20%7C%20parallel%20%7C%20anaglyph%20%7C%20VR-f97316?style=flat-square)](#-3d-and-vr)
 [![Offline](https://img.shields.io/badge/works-offline-10b981?style=flat-square)](#-install-as-an-app)
 [![three.js](https://img.shields.io/badge/three.js-r128-black?style=flat-square&logo=threedotjs)](https://threejs.org/)
